@@ -1,8 +1,8 @@
-import { getElevation } from './elevation.js';
+import { getElevation } from './heightmap/elevation.js';
 import * as THREE from 'three';
 import Stats from 'stats.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Graph } from './graph';
+import { Graph } from './datastructures/graph.js';
 
 
 const stats = new Stats();

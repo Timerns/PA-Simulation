@@ -116,7 +116,7 @@ class Graph {
             let current = openSet.dequeue();
     
             if (current === goalNode) {
-                console.log("Time taken for A* algorithm: ", Date.now() - start);
+                console.log("Time taken for A* algorithm: ", Date.now() - start), "ms";
                 return this.reconstructPath(cameFrom, current);
             }
     
