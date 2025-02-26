@@ -60,6 +60,10 @@ class Graph {
         source.addNeighbor(destination, weight);
     }
 
+    removeEdge(source, destination) {
+        source.neighbors.delete(destination);
+    }
+
     bfs(start) {
         const visited = new Set();
         const queue = [start];
@@ -134,15 +138,35 @@ class Graph {
         return null; // No path found
     }
 
-    // Helper function to reconstruct the shortest path
-    reconstructPath(cameFrom, current) {
-        const path = [];
-        while (cameFrom.has(current)) {
-            path.unshift(current);
-            current = cameFrom.get(current);
-        }
-        path.unshift(current);
-        return path;
+    toJSON() {
+        return JSON.stringify([...this.nodes.entries()].map(([key, node]) => ({
+            key,
+            value: node.value,
+            neighbors: [...node.neighbors.entries()].map(([neighbor, weight]) => ({
+                neighborKey: [...this.nodes.entries()].find(([k, v]) => v === neighbor)[0], // Get key from node
+                weight
+            }))
+        })));
+    }
+
+    static fromJSON(json) {
+        const data = JSON.parse(json);
+        const graph = new Graph();
+
+        // Create nodes
+        data.forEach(({ key, value }) => {
+            graph.addNode(key, value);
+        });
+
+        // Reconnect neighbors
+        data.forEach(({ key, neighbors }) => {
+            const node = graph.getNode(key);
+            neighbors.forEach(({ neighborKey, weight }) => {
+                graph.addEdge(node, graph.getNode(neighborKey), weight);
+            });
+        });
+
+        return graph;
     }
 
 }
