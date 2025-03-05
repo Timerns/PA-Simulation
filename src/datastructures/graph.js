@@ -1,41 +1,22 @@
-
-class Node {
-    constructor(value) {
-        this.value = value;
-        this.neighbors = new Map();;
-    }
-
-    addNeighbor(node, weight) {
-        this.neighbors.set(node, weight);
-    }
-}
-
-class PriorityQueue {
-    constructor() {
-        this.items = [];
-    }
-
-    enqueue(node, priority) {
-        this.items.push({ node, priority });
-        this.items.sort((a, b) => a.priority - b.priority); // Min-Heap Sorting
-    }
-
-    dequeue() {
-        return this.items.shift().node;
-    }
-
-    isEmpty() {
-        return this.items.length === 0;
-    }
-}
-
+import { Node } from './node.js';
+import { PriorityQueue } from './priorityqueue.js';
 class Graph {
     constructor() {
         this.nodes = new Map();
+        this.precomputedPaths = new Map(); 
     }
 
-    getNode(key) {
-        return this.nodes.get(key);
+    getNodeKey(x, y, z) {
+        // x, y, z are floating point numbers and must not be used using scientific notation
+
+        // return `${x.toFixed(11)},${y.toFixed(11)},${z.toFixed(11)}`;
+        return `${x},${y},${z}`;
+    }
+
+    getEdgeKey(node1, node2) {
+        return node1.value.x < node2.value.x
+            ? `${node1.value.x},${node1.value.y},${node1.value.z}-${node2.value.x},${node2.value.y},${node2.value.z}`
+            : `${node2.value.x},${node2.value.y},${node2.value.z}-${node1.value.x},${node1.value.y},${node1.value.z}`;
     }
 
     getRandomNode() {
@@ -47,7 +28,8 @@ class Graph {
         return source.neighbors.get(destination);
     }
 
-    addNode(key, value) {
+    addNode(value) {
+        const key = this.getNodeKey(value.x, value.y, value.z);
         if (this.nodes.has(key)) {
             return this.nodes.get(key);
         }
@@ -58,6 +40,11 @@ class Graph {
 
     addEdge(source, destination, weight = 1) {
         source.addNeighbor(destination, weight);
+    }
+
+    removeNode(node) {
+        var key = this.getNodeKey(node.value.x, node.value.y, node.value.z);
+        return this.nodes.delete(key);
     }
 
     removeEdge(source, destination) {
@@ -98,9 +85,8 @@ class Graph {
         return components;
     }
 
-     // Heuristic function (Example: Euclidean Distance)
     heuristic(nodeA, nodeB) {
-        return Math.abs(nodeA.value - nodeB.value); // Modify based on the problem context
+        return nodeA.value.distanceTo(nodeB.value);
     }
 
     // A* Algorithm Implementation
@@ -138,37 +124,15 @@ class Graph {
         return null; // No path found
     }
 
-    toJSON() {
-        return JSON.stringify([...this.nodes.entries()].map(([key, node]) => ({
-            key,
-            value: node.value,
-            neighbors: [...node.neighbors.entries()].map(([neighbor, weight]) => ({
-                neighborKey: [...this.nodes.entries()].find(([k, v]) => v === neighbor)[0], // Get key from node
-                weight
-            }))
-        })));
-    }
-
-    static fromJSON(json) {
-        const data = JSON.parse(json);
-        const graph = new Graph();
-
-        // Create nodes
-        data.forEach(({ key, value }) => {
-            graph.addNode(key, value);
-        });
-
-        // Reconnect neighbors
-        data.forEach(({ key, neighbors }) => {
-            const node = graph.getNode(key);
-            neighbors.forEach(({ neighborKey, weight }) => {
-                graph.addEdge(node, graph.getNode(neighborKey), weight);
-            });
-        });
-
-        return graph;
+    reconstructPath(cameFrom, current) {
+        const totalPath = [current];
+        while (cameFrom.has(current)) {
+            current = cameFrom.get(current);
+            totalPath.unshift(current);
+        }
+        return totalPath;
     }
 
 }
 
-export { Graph, Node };
+export { Graph };

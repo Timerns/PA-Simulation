@@ -68,4 +68,4 @@ function getElevation(lat, lon) {
     return z1 * (1 - x) * (1 - y) + z2 * x * (1 - y) + z3 * (1 - x) * y + z4 * x * y - minHeight;
 }
 
-export { getElevation, loadDEM, demImage, demRasters, lonRes, latRes, width, height, originX, originY, minLonDEM, minLatDEM, maxLonDEM, maxLatDEM, minHeight, maxHeight };
+export { getElevation };

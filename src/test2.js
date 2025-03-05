@@ -86,19 +86,6 @@ const target = new THREE.Mesh(new THREE.SphereGeometry(5), new THREE.MeshBasicMa
 target.position.copy(targetNode.value);
 scene.add(target);
 
-const astarWorker = new Worker("./datastructures/astarWorker.js");
-
-function calculatePathAsync(startNode, targetNode, callback) {
-    astarWorker.onmessage = function (e) {
-        callback(e.data);
-    };
-    astarWorker.postMessage({
-        graphData: graph.toJSON(),
-        startId: startNode.id,
-        endId: targetNode.id
-    });
-}
-
 // Spawn Agents
 for (let i = 0; i < 200; i++) {
     let randomNode = graph.getRandomNode();
@@ -108,12 +95,6 @@ for (let i = 0; i < 200; i++) {
     agent.targetNode = targetNode;
     agents.push(agent);
     scene.add(agent);
-}
-
-for (let agent of agents) {
-    calculatePathAsync(agent.currentNode, agent.targetNode, (path) => {
-        agent.path = path;
-    });
 }
 
 // Function to Generate Edge Key
@@ -130,16 +111,19 @@ let accumulatedTime = 0;
 let tickMultiplier = 1;
 
 function moveAgents(deltaTime) {
+    graph.precomputePathsToGoal(targetNode);
     for (let agent of agents) {
         if (agent.currentNode === agent.targetNode) continue;
 
-        if (!agent.path || agent.path.length <= 1) {
-            agent.path = graph.aStar(agent.currentNode, agent.targetNode);
+        // Fetch precomputed path if not set or outdated
+        if (!agent.path || agent.path.length <= 1 || agent.path[agent.path.length - 1] !== agent.targetNode) {
+            agent.path = graph.getPrecomputedPath(agent.currentNode);
+            console.log(agent.path);
             if (!agent.path || agent.path.length < 2) continue;
             agent.progress = 0; // Reset progress along edge
         }
 
-        let nextNode = agent.path[1];
+        let nextNode = agent.path[1]; // Next node in the path
         let edgeLength = agent.currentNode.value.distanceTo(nextNode.value);
         let stepSize = 15 * tickMultiplier * (deltaTime / 1000); // Time-based movement
 
@@ -147,10 +131,11 @@ function moveAgents(deltaTime) {
         let alpha = agent.progress / edgeLength;
         agent.position.lerpVectors(agent.currentNode.value, nextNode.value, alpha);
 
+        // Check if the agent reached the next node
         if (agent.progress >= edgeLength) {
             agent.position.copy(nextNode.value);
             agent.currentNode = nextNode;
-            agent.path.shift();
+            agent.path.shift(); // Remove the first node from the path
             agent.progress = 0; // Reset progress for next edge
         }
     }

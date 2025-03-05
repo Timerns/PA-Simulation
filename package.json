@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite ./src --host 127.0.0.1 --port 3000",
+    "a": "vite ./test.html --host 127.0.0.1 --port 3000",
     "build": "vite build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
