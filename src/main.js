@@ -12,8 +12,9 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-const box = [6.61,46.506415,6.643553,46.531823];
+// const box = [6.61,46.506415,6.643553,46.531823];
 // const box = [6.863228,46.373207,6.915413,46.402466];
+const box = [83.574371,28.245269,83.609904,28.286696];
 
 const roads = await getRoadMap(...box);
 
@@ -200,7 +201,7 @@ targetNodeMesh.position.copy(targetNode.value);
 scene.add(targetNodeMesh);
 
 const agents = [];
-for (let i = 0; i < 0; i++) {
+for (let i = 0; i < 1000; i++) {
     let randomNode = graph.getRandomNode();
     let agent = new Agent(randomNode, targetNode);
     agents.push(agent);

@@ -1,7 +1,8 @@
 import { fromUrl } from "geotiff";
 
 // URL of the Copernicus DEM tile (Modify this based on your location)
-const DEM_FILENAME = "../assets/2025-02-20-00_00_2025-02-20-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
+// const DEM_FILENAME = "../assets/2025-02-20-00_00_2025-02-20-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
+const DEM_FILENAME = "../assets/2025-03-06-00_00_2025-03-06-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
 let demImage, demRasters, lonRes, latRes, width, height, originX, originY;
 let minLonDEM, minLatDEM, maxLonDEM, maxLatDEM;
 let minHeight, maxHeight;
@@ -19,18 +20,9 @@ async function loadDEM() {
     [originX, originY] = demImage.getOrigin();
     [minLonDEM, minLatDEM, maxLonDEM, maxLatDEM] = demImage.getBoundingBox();
 
-    for (let i = 0; i < demRasters[0].length; i++) {
-        if (minHeight === undefined || demRasters[0][i] < minHeight) {
-            minHeight = demRasters[0][i];
-        }
-    }
-
-    for (let i = 0; i < demRasters[0].length; i++) {
-        if (maxHeight === undefined || demRasters[0][i] > maxHeight) {
-            maxHeight = demRasters[0][i];
-        }
-    }
-  
+    const filteredData = demRasters[0].filter(num => !isNaN(num));
+    maxHeight = filteredData.reduce((a, b) => Math.max(a, b), -Infinity);
+    minHeight = filteredData.reduce((a, b) => Math.min(a, b), Infinity);
 
 
     console.log("DEM Loaded:", width, height, "Resolution:", lonRes, latRes, "Bounds:", minLonDEM, minLatDEM, maxLonDEM, maxLatDEM, "Origin:", originX, originY);
@@ -58,6 +50,7 @@ function getElevation(lat, lon) {
         return 0;
     }
 
+
     // Perform the interpolation
     const x = (lon - minLonDEM) / lonRes - x_min;
     const y = (lat - maxLatDEM) / latRes - y_min;
@@ -65,6 +58,7 @@ function getElevation(lat, lon) {
     const z2 = demRasters[0][y_min * width + x_max];
     const z3 = demRasters[0][y_max * width + x_min];
     const z4 = demRasters[0][y_max * width + x_max];
+    // return z1
     return z1 * (1 - x) * (1 - y) + z2 * x * (1 - y) + z3 * (1 - x) * y + z4 * x * y - minHeight;
 }
 
