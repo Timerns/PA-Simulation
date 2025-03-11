@@ -5,7 +5,7 @@ class Agent {
         this.currentNode = node;
         this.targetNode = targetNode;
         this.progress = 0;
-        this.path = null;
+        this.nextNode = null;
         this.speed = 50; // Movement speed
 
         // Create visual representation
@@ -17,26 +17,29 @@ class Agent {
     }
 
     update(graph, deltaTime, tickMultiplier) {
+        // If we've reached the target, nothing to do
         if (this.currentNode === this.targetNode) return;
 
-        if (!this.path || this.path.length <= 1) {
-            this.path = graph.aStar(this.currentNode, this.targetNode);
-            if (!this.path || this.path.length < 2) return;
+        // If we don't have a next node yet, get it from the precomputed path
+        if (!this.nextNode) {
+            this.nextNode = graph.getNextNodeToTarget(this.currentNode, this.targetNode);
+            if (!this.nextNode) return; // No path exists
             this.progress = 0;
         }
 
-        let nextNode = this.path[1];
-        let edgeLength = this.currentNode.value.distanceTo(nextNode.value);
+        // Calculate movement
+        let edgeLength = this.currentNode.value.distanceTo(this.nextNode.value);
         let stepSize = this.speed * tickMultiplier * (deltaTime / 1000);
 
         this.progress = Math.min(this.progress + stepSize, edgeLength);
         let alpha = this.progress / edgeLength;
-        this.mesh.position.lerpVectors(this.currentNode.value, nextNode.value, alpha);
+        this.mesh.position.lerpVectors(this.currentNode.value, this.nextNode.value, alpha);
 
+        // When we reach the next node
         if (this.progress >= edgeLength) {
-            this.mesh.position.copy(nextNode.value);
-            this.currentNode = nextNode;
-            this.path.shift();
+            this.mesh.position.copy(this.nextNode.value);
+            this.currentNode = this.nextNode;
+            this.nextNode = graph.getNextNodeToTarget(this.currentNode, this.targetNode);
             this.progress = 0;
         }
     }

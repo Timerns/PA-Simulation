@@ -50,7 +50,6 @@ function getElevation(lat, lon) {
         return 0;
     }
 
-
     // Perform the interpolation
     const x = (lon - minLonDEM) / lonRes - x_min;
     const y = (lat - maxLatDEM) / latRes - y_min;
@@ -58,7 +57,7 @@ function getElevation(lat, lon) {
     const z2 = demRasters[0][y_min * width + x_max];
     const z3 = demRasters[0][y_max * width + x_min];
     const z4 = demRasters[0][y_max * width + x_max];
-    // return z1
+
     return z1 * (1 - x) * (1 - y) + z2 * x * (1 - y) + z3 * (1 - x) * y + z4 * x * y - minHeight;
 }
 

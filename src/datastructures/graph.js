@@ -1,15 +1,13 @@
 import { Node } from './node.js';
 import { PriorityQueue } from './priorityqueue.js';
+
 class Graph {
     constructor() {
         this.nodes = new Map();
-        this.precomputedPaths = new Map(); 
+        this.pathCache = new Map(); // Cache for precomputed paths
     }
 
     getNodeKey(x, y, z) {
-        // x, y, z are floating point numbers and must not be used using scientific notation
-
-        // return `${x.toFixed(11)},${y.toFixed(11)},${z.toFixed(11)}`;
         return `${x},${y},${z}`;
     }
 
@@ -85,53 +83,125 @@ class Graph {
         return components;
     }
 
-    heuristic(nodeA, nodeB) {
-        return nodeA.value.distanceTo(nodeB.value);
-    }
 
-    // A* Algorithm Implementation
-    aStar(startNode, goalNode) {
-        var start = Date.now();
-        const openSet = new PriorityQueue();
-        openSet.enqueue(startNode, 0);
-    
-        const cameFrom = new Map();
-        const gScore = new Map();
-        gScore.set(startNode, 0);
-    
-        const fScore = new Map();
-        fScore.set(startNode, this.heuristic(startNode, goalNode));
-    
-        while (!openSet.isEmpty()) {
-            let current = openSet.dequeue();
-    
-            if (current === goalNode) {
-                console.log("Time taken for A* algorithm: ", Date.now() - start), "ms";
-                return this.reconstructPath(cameFrom, current);
+    precomputePaths(targetNodes) {
+        // Clear the existing path cache
+        this.pathCache.clear();
+
+        // For each target node, compute paths from all nodes to it
+        for (const target of targetNodes) {
+            const distances = new Map();
+            const previous = new Map();
+            const queue = new PriorityQueue();
+
+            // Initialize distances and queue
+            for (const node of this.nodes.values()) {
+                distances.set(node, Infinity);
+                queue.enqueue(node, Infinity);
             }
-    
-            for (const [neighbor, weight] of current.neighbors) {
-                const tentativeGScore = gScore.get(current) + weight;
-    
-                if (!gScore.has(neighbor) || tentativeGScore < gScore.get(neighbor)) {
-                    cameFrom.set(neighbor, current);
-                    gScore.set(neighbor, tentativeGScore);
-                    fScore.set(neighbor, tentativeGScore + this.heuristic(neighbor, goalNode));
-                    openSet.enqueue(neighbor, fScore.get(neighbor));
+            distances.set(target, 0);
+            queue.enqueue(target, 0);
+
+            // Dijkstra's algorithm
+            while (!queue.isEmpty()) {
+                const current = queue.dequeue();
+
+                // If we've reached infinity distance, no more paths to process
+                if (distances.get(current) === Infinity) break;
+
+                for (const [neighbor, weight] of current.neighbors.entries()) {
+                    const distance = distances.get(current) + weight;
+
+                    if (distance < distances.get(neighbor)) {
+                        distances.set(neighbor, distance);
+                        previous.set(neighbor, current);
+                        queue.enqueue(neighbor, distance);
+                    }
                 }
             }
+
+            // Store the path information in the cache
+            const targetKey = this.getNodeKey(target.value.x, target.value.y, target.value.z);
+            this.pathCache.set(targetKey, { previous, distances });
         }
-        return null; // No path found
     }
 
-    reconstructPath(cameFrom, current) {
-        const totalPath = [current];
-        while (cameFrom.has(current)) {
-            current = cameFrom.get(current);
-            totalPath.unshift(current);
+    getNextNodeToTarget(source, target) {
+        // If source and target are the same, return the source
+        if (source === target) return source;
+
+        const targetKey = this.getNodeKey(target.value.x, target.value.y, target.value.z);
+
+        // Check if we have precomputed paths for this target
+        if (!this.pathCache.has(targetKey)) {
+            // If not precomputed, compute it on-demand
+            this.precomputePaths([target]);
         }
-        return totalPath;
+
+        const { previous } = this.pathCache.get(targetKey);
+
+        // Build the path from target to source
+        let path = [];
+        let current = source;
+
+        // If there's no path to the target
+        if (!previous.has(source)) {
+            return null;
+        }
+
+        // Reconstruct the path
+        while (current !== target) {
+            path.push(current);
+            current = previous.get(current);
+
+            // Safety check to prevent infinite loops
+            if (!current) return null;
+        }
+
+        // Return the first node in the path after the source
+        return path.length > 1 ? path[1] : previous.get(source);
     }
+
+    getPathToTarget(source, target) {
+        // If source and target are the same, return just the source
+        if (source === target) return [source];
+
+        const targetKey = this.getNodeKey(target.value.x, target.value.y, target.value.z);
+
+        // Check if we have precomputed paths for this target
+        if (!this.pathCache.has(targetKey)) {
+            // If not precomputed, compute it on-demand
+            this.precomputePaths([target]);
+        }
+
+        const { previous } = this.pathCache.get(targetKey);
+
+        // Build the path from source to target
+        let path = [];
+        let current = source;
+
+        // If there's no path to the target
+        if (!previous.has(source)) {
+            return [];
+        }
+
+        // Reconstruct the path
+        while (current !== target) {
+            path.push(current);
+            current = previous.get(current);
+
+            // Safety check to prevent infinite loops
+            if (!current) return [];
+        }
+
+        // Add the target to the path
+        path.push(target);
+
+        return path;
+    }
+    
+
+    
 
 }
 
