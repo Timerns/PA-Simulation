@@ -389,7 +389,7 @@ function setupRaycasting(roadGrid, positions) {
     }
 }
 
-// Extract agent setup code to a function with nearest-target behavior
+// Extract agent setup code to a function with nearest-target behavior and enhanced agent features
 function setupAgents() {
     // Create multiple target nodes
     const numberOfTargets = 5; // Adjust as needed
@@ -420,6 +420,9 @@ function setupAgents() {
     // Create agents with nearest target assignment using path distances
     const agents = [];
     const numAgents = 1000;
+    
+    // Clear the Agent.allAgents array for social distancing reference
+    Agent.allAgents = [];
     
     console.time("Assigning agents to nearest targets");
     for (let i = 0; i < numAgents; i++) {
@@ -457,11 +460,15 @@ function setupAgents() {
         // Create agent with the nearest target
         let agent = new Agent(randomNode, nearestTarget);
         
-        // Color the agent based on its target
+        // Color the agent based on its target and speed
         const targetIndex = targetNodes.indexOf(nearestTarget);
-        const greenValue = 1 - (targetIndex * 0.2);
+        // Use red-to-yellow scale based on speed (red is faster, yellow is slower)
+        const speedFactor = (agent.speed - 30) / 40; // Normalize to 0-1 range
+        const greenValue = 0.5 + speedFactor * 0.5; // 0.5-1.0 range
         agent.mesh.material.color.setRGB(1, greenValue, 0);
         
+        // Add agent to the global agents array for social distancing
+        Agent.allAgents.push(agent);
         agents.push(agent);
         scene.add(agent.mesh);
     }
@@ -503,11 +510,68 @@ function setupAgents() {
     cacheStats.style.marginTop = "10px";
     cacheStats.innerHTML = `<b>Path cache:</b> ${targetNodes.length} targets precomputed`;
 
-   
+    // Add social distance control slider
+    const socialDistanceLabel = document.createElement("label");
+    socialDistanceLabel.innerText = "Social distance:";
+    socialDistanceLabel.style.display = "block";
+    socialDistanceLabel.style.marginTop = "10px";
+
+    const socialDistanceSlider = document.createElement("input");
+    socialDistanceSlider.type = "range";
+    socialDistanceSlider.min = 5;
+    socialDistanceSlider.max = 30;
+    socialDistanceSlider.value = 15;
+    socialDistanceSlider.style.width = "100px";
+
+    const socialDistanceValue = document.createElement("span");
+    socialDistanceValue.innerText = ` ${socialDistanceSlider.value}`;
+
+    socialDistanceSlider.oninput = function () {
+        // Update the social distance for all agents
+        const newDistance = parseInt(socialDistanceSlider.value);
+        agents.forEach(agent => {
+            agent.socialDistance = newDistance;
+        });
+        socialDistanceValue.innerText = ` ${newDistance}`;
+    };
+
+    // Add stuck threshold control slider
+    const stuckThresholdLabel = document.createElement("label");
+    stuckThresholdLabel.innerText = "Stuck detection (ms):";
+    stuckThresholdLabel.style.display = "block";
+    stuckThresholdLabel.style.marginTop = "10px";
+
+    const stuckThresholdSlider = document.createElement("input");
+    stuckThresholdSlider.type = "range";
+    stuckThresholdSlider.min = 1000;
+    stuckThresholdSlider.max = 5000;
+    stuckThresholdSlider.value = 3000;
+    stuckThresholdSlider.style.width = "100px";
+
+    const stuckThresholdValue = document.createElement("span");
+    stuckThresholdValue.innerText = ` ${stuckThresholdSlider.value}`;
+
+    stuckThresholdSlider.oninput = function () {
+        // Update the stuck threshold for all agents
+        const newThreshold = parseInt(stuckThresholdSlider.value);
+        agents.forEach(agent => {
+            agent.stuckThreshold = newThreshold;
+        });
+        stuckThresholdValue.innerText = ` ${newThreshold}`;
+    };
 
     sliderContainer.appendChild(sliderLabel);
     sliderContainer.appendChild(slider);
     sliderContainer.appendChild(sliderValue);
+    sliderContainer.appendChild(document.createElement("br"));
+    sliderContainer.appendChild(socialDistanceLabel);
+    sliderContainer.appendChild(socialDistanceSlider);
+    sliderContainer.appendChild(socialDistanceValue);
+    sliderContainer.appendChild(document.createElement("br"));
+    sliderContainer.appendChild(stuckThresholdLabel);
+    sliderContainer.appendChild(stuckThresholdSlider);
+    sliderContainer.appendChild(stuckThresholdValue);
+    sliderContainer.appendChild(document.createElement("br"));
     sliderContainer.appendChild(cacheStats);
     document.body.appendChild(sliderContainer);
 
