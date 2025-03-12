@@ -519,7 +519,7 @@ function setupAgents() {
     const socialDistanceSlider = document.createElement("input");
     socialDistanceSlider.type = "range";
     socialDistanceSlider.min = 5;
-    socialDistanceSlider.max = 30;
+    socialDistanceSlider.max = 100;
     socialDistanceSlider.value = 15;
     socialDistanceSlider.style.width = "100px";
 
@@ -584,7 +584,7 @@ function setupAgents() {
 function addMapTextureControls() {
     const controlsContainer = document.createElement("div");
     controlsContainer.style.position = "absolute";
-    controlsContainer.style.top = "200px";
+    controlsContainer.style.bottom = "50px";
     controlsContainer.style.left = "10px";
     controlsContainer.style.background = "rgba(255, 255, 255, 0.8)";
     controlsContainer.style.padding = "10px";
@@ -620,11 +620,72 @@ function addMapTextureControls() {
     document.body.appendChild(controlsContainer);
 }
 
+// Add this function to main.js
+function addSimulationStats() {
+    const statsContainer = document.createElement("div");
+    statsContainer.style.position = "absolute";
+    statsContainer.style.bottom = "10px";
+    statsContainer.style.right = "10px";
+    statsContainer.style.background = "rgba(255, 255, 255, 0.8)";
+    statsContainer.style.padding = "10px";
+    statsContainer.style.borderRadius = "5px";
+    statsContainer.style.fontFamily = "monospace";
+    statsContainer.id = "simStatsContainer";
+
+    // Create various stat elements
+    const tickTimeDisplay = document.createElement("div");
+    tickTimeDisplay.id = "tickTime";
+    tickTimeDisplay.textContent = "Tick time: 0.00 ms";
+
+    const ticksPerSecondDisplay = document.createElement("div");
+    ticksPerSecondDisplay.id = "ticksPerSecond";
+    ticksPerSecondDisplay.textContent = "Ticks/sec: 0";
+
+    const agentCountDisplay = document.createElement("div");
+    agentCountDisplay.id = "agentCount";
+    agentCountDisplay.textContent = "Agents: 0";
+
+    // Add elements to container
+    statsContainer.appendChild(tickTimeDisplay);
+    statsContainer.appendChild(ticksPerSecondDisplay);
+    statsContainer.appendChild(agentCountDisplay);
+    document.body.appendChild(statsContainer);
+
+    // Variables for stats calculations
+    let tickTimeSum = 0;
+    let tickCount = 0;
+    let lastStatsUpdate = performance.now();
+    
+    // Return an update function that can be called each tick
+    return {
+        updateStats: (tickTime, agentCount) => {
+            tickTimeSum += tickTime;
+            tickCount++;
+            
+            const now = performance.now();
+            if (now - lastStatsUpdate > 1000) { // Update display once per second
+                const avgTickTime = tickTimeSum / tickCount;
+                const ticksPerSecond = tickCount / ((now - lastStatsUpdate) / 1000);
+                
+                document.getElementById("tickTime").textContent = `Tick time: ${avgTickTime.toFixed(2)} ms`;
+                document.getElementById("ticksPerSecond").textContent = `Ticks/sec: ${ticksPerSecond.toFixed(1)}`;
+                document.getElementById("agentCount").textContent = `Agents: ${agentCount}`;
+                
+                // Reset counters
+                tickTimeSum = 0;
+                tickCount = 0;
+                lastStatsUpdate = now;
+            }
+        }
+    };
+}
+
 // Animation code
 let agentsData;
 let lastUpdateTime;
-let accumulatedTime;
-const timeStep = 1000 / 60;
+let accumulatedTime = 0;
+const fixedTimeStep = 16;
+let simulationStats;
 
 // Initialize everything and start animation
 async function init() {
@@ -636,32 +697,67 @@ async function init() {
     
     // Setup agents
     agentsData = setupAgents();
+
+    // Setup simulation stats
+    simulationStats = addSimulationStats();
     
     // Initialize animation parameters
     lastUpdateTime = performance.now();
-    accumulatedTime = 0;
     
     // Start animation loop
     animate();
 }
 
+// Then modify your animation function to include the stats update:
 function animate() {
     stats.begin();
 
-    let deltaTime = performance.now() - lastUpdateTime;
-    lastUpdateTime = performance.now();
+    const currentTime = performance.now();
+    const deltaTime = currentTime - lastUpdateTime;
+    lastUpdateTime = currentTime;
+    
+    // Add the frame's time to the accumulated time
     accumulatedTime += deltaTime;
     
-    while (accumulatedTime >= timeStep) {
+    // Run as many fixed-time updates as needed to catch up
+    let ticksExecuted = 0;
+    while (accumulatedTime >= fixedTimeStep && ticksExecuted < 240) {
+        const tickStartTime = performance.now();
+        
         if (agentsData && agentsData.agents) {
-            agentsData.agents.forEach(agent => agent.update(graph, timeStep, agentsData.tickMultiplier.value));
+            // Update all agents with the fixed time step
+            const timeMultiplier = agentsData.tickMultiplier.value;
+            agentsData.agents.forEach(agent => 
+                agent.update(graph, fixedTimeStep, timeMultiplier)
+            );
         }
-        accumulatedTime -= timeStep;
+        
+        const tickEndTime = performance.now();
+        simulationStats.updateStats(
+            tickEndTime - tickStartTime, 
+            agentsData ? agentsData.agents.length : 0
+        );
+        
+        // Subtract the fixed time step from the accumulated time
+        accumulatedTime -= fixedTimeStep;
+        ticksExecuted++;
+    }
+    
+    // If we hit the safety limit, reset accumulated time to prevent lag
+    if (ticksExecuted >= 240) {
+        console.warn("Simulation running too slowly, resetting accumulated time");
+        accumulatedTime = 0;
     }
 
+    // Request the next frame
     requestAnimationFrame(animate);
+    
+    // Update camera controls
     controls.update();
+    
+    // Render the scene
     renderer.render(scene, camera);
+    
     stats.end();
 }
 
@@ -670,7 +766,7 @@ function addMapToggleButton() {
     const toggleBtn = document.createElement("button");
     toggleBtn.innerText = "Toggle Map";
     toggleBtn.style.position = "absolute";
-    toggleBtn.style.top = "270px";
+    toggleBtn.style.bottom = "10px";
     toggleBtn.style.left = "10px";
     toggleBtn.style.padding = "8px";
     toggleBtn.style.borderRadius = "5px";
@@ -699,8 +795,16 @@ function addMapToggleButton() {
     document.body.appendChild(toggleBtn);
 }
 
+
 // Start the whole process
 init().then(() => {
     addMapToggleButton();
     console.log("Initialization complete");
 });
+
+// Resize handling
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}, false);

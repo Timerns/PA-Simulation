@@ -7,7 +7,7 @@ class Agent {
         this.progress = 0;
         this.nextNode = null;
         
-        // Randomize speed for each agent
+        // Randomize speed for each agent (units per second)
         this.speed = 30 + Math.random() * 40; // Speed between 30-70
         
         // Add stuck detection properties
@@ -15,6 +15,9 @@ class Agent {
         this.stuckThreshold = 3000; // 3 seconds of being stuck
         this.lastPosition = new THREE.Vector3().copy(node.value);
         this.movementThreshold = 2; // Minimum movement to not be considered stuck
+        
+        // Social distancing settings
+        this.socialDistance = 15;
         
         // Keep track of alternate paths and visited nodes to avoid loops
         this.visitedNodes = new Set();
@@ -28,18 +31,28 @@ class Agent {
             new THREE.MeshBasicMaterial({ color: 0xff0000 })
         );
         this.mesh.position.copy(node.value);
+        
+        // For interpolation between ticks
+        this.previousPosition = new THREE.Vector3().copy(node.value);
+        this.targetPosition = new THREE.Vector3().copy(node.value);
     }
 
     getNodeKey(node) {
         return `${node.value.x},${node.value.y},${node.value.z}`;
     }
 
-    update(graph, deltaTime, tickMultiplier) {
-        // If we've reached the target, nothing to do
+    update(graph, deltaTimeMs, tickMultiplier) {
+        // Convert deltaTime from ms to seconds
+        const deltaTime = deltaTimeMs / 1000;
+        
+        // Store previous position for interpolation
+        this.previousPosition.copy(this.mesh.position);
+        
+        // If we've reached the target, nothing more to do
         if (this.currentNode === this.targetNode) return;
 
         // Check if we're stuck
-        if (this.detectStuck(deltaTime)) {
+        if (this.detectStuck(deltaTimeMs)) {
             this.handleStuck(graph);
         }
 
@@ -50,21 +63,22 @@ class Agent {
             this.progress = 0;
         }
 
-        // Calculate movement
+        // Calculate movement with fixed time step
         let edgeLength = this.currentNode.value.distanceTo(this.nextNode.value);
-        let stepSize = this.speed * tickMultiplier * (deltaTime / 1000);
+        let stepSize = this.speed * tickMultiplier * deltaTime;
 
         // Apply social distancing - slow down if too close to other agents
         stepSize = this.applySocialDistancing(stepSize);
 
+        // Update progress along the edge
         this.progress = Math.min(this.progress + stepSize, edgeLength);
         let alpha = this.progress / edgeLength;
         
-        // Store previous position for stuck detection
-        this.lastPosition.copy(this.mesh.position);
+        // Calculate new position
+        this.targetPosition.lerpVectors(this.currentNode.value, this.nextNode.value, alpha);
         
-        // Update position
-        this.mesh.position.lerpVectors(this.currentNode.value, this.nextNode.value, alpha);
+        // Update mesh position directly (no interpolation in update loop)
+        this.mesh.position.copy(this.targetPosition);
 
         // When we reach the next node
         if (this.progress >= edgeLength) {
@@ -88,6 +102,7 @@ class Agent {
         } else {
             // Reset stuck timer if we're moving fine
             this.stuckTime = 0;
+            this.lastPosition.copy(this.mesh.position);
             return false;
         }
     }
@@ -156,32 +171,27 @@ class Agent {
     }
 
     applySocialDistancing(stepSize) {
-        // Get all nearby meshes to simulate social distancing
-        const socialDistance = 15; // Minimum distance between agents
+        // Only apply social distancing if we have access to all agents
+        if (!Agent.allAgents || Agent.allAgents.length === 0) {
+            return stepSize;
+        }
+        
         let closestDistance = Infinity;
         
-        // We need a reference to all other agents to check distances
-        // This would typically be passed in from the main simulation
-        // For now, we'll check scene objects (a bit inefficient)
-        if (this.mesh.parent) {
-            this.mesh.parent.children.forEach(child => {
-                // Only check other agent meshes
-                if (child !== this.mesh && child.type === 'Mesh' && 
-                    child.geometry.type === 'SphereGeometry' && 
-                    child.geometry.parameters.radius === 5) {
-                    
-                    const distance = this.mesh.position.distanceTo(child.position);
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                    }
-                }
-            });
+        // Check distance to all other agents
+        for (const other of Agent.allAgents) {
+            if (other === this) continue;
+            
+            const distance = this.mesh.position.distanceTo(other.mesh.position);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+            }
         }
         
         // Apply social distancing by reducing speed when too close
-        if (closestDistance < socialDistance) {
+        if (closestDistance < this.socialDistance) {
             // Scale speed based on how close we are to others
-            const slowFactor = Math.max(0.2, closestDistance / socialDistance);
+            const slowFactor = Math.max(0.2, closestDistance / this.socialDistance);
             return stepSize * slowFactor;
         }
         
@@ -189,7 +199,7 @@ class Agent {
     }
 }
 
-// Add a static array for all agents to improve social distancing logic
+// Static array for all agents to improve social distancing logic
 Agent.allAgents = [];
 
 export { Agent };
