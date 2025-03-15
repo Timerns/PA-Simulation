@@ -12,9 +12,9 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// const box = [6.58,46.506415,6.643553,46.531823];
+const box = [6.58,46.506415,6.643553,46.531823];
 // const box = [6.863228,46.373207,6.915413,46.402466];
-const box = [83.574371,28.245269,83.609904,28.286696];
+// const box = [83.574371,28.245269,83.609904,28.286696];
 
 const roads = await getRoadMap(...box);
 
@@ -684,7 +684,7 @@ function addSimulationStats() {
 let agentsData;
 let lastUpdateTime;
 let accumulatedTime = 0;
-const fixedTimeStep = 16;
+const fixedTimeStep = 5;
 let simulationStats;
 
 // Initialize everything and start animation

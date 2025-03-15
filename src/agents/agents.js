@@ -173,6 +173,7 @@ class Agent {
     applySocialDistancing(stepSize) {
         // Only apply social distancing if we have access to all agents
         if (!Agent.allAgents || Agent.allAgents.length === 0) {
+            console.warn("Agent.allAgents is not set or empty, skipping social distancing");
             return stepSize;
         }
         

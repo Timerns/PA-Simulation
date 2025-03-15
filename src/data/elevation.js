@@ -1,14 +1,13 @@
 import { fromUrl } from "geotiff";
 
 // URL of the Copernicus DEM tile (Modify this based on your location)
-// const DEM_FILENAME = "../assets/2025-02-20-00_00_2025-02-20-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
-const DEM_FILENAME = "../assets/2025-03-06-00_00_2025-03-06-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
+const DEM_FILENAME = "../assets/2025-02-20-00_00_2025-02-20-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
+// const DEM_FILENAME = "../assets/2025-03-06-00_00_2025-03-06-23_59_DEM_COPERNICUS_30_DEM_(Raw).tiff";
 let demImage, demRasters, lonRes, latRes, width, height, originX, originY;
 let minLonDEM, minLatDEM, maxLonDEM, maxLatDEM;
 let minHeight, maxHeight;
 // Load the DEM file
 async function loadDEM() {
-    console.log("Loading DEM...");
     const tiff = await fromUrl(DEM_FILENAME);
     demImage = await tiff.getImage();
     demRasters = await demImage.readRasters();
@@ -23,10 +22,6 @@ async function loadDEM() {
     const filteredData = demRasters[0].filter(num => !isNaN(num));
     maxHeight = filteredData.reduce((a, b) => Math.max(a, b), -Infinity);
     minHeight = filteredData.reduce((a, b) => Math.min(a, b), Infinity);
-
-
-    console.log("DEM Loaded:", width, height, "Resolution:", lonRes, latRes, "Bounds:", minLonDEM, minLatDEM, maxLonDEM, maxLatDEM, "Origin:", originX, originY);
-    console.log("Min Height:", minHeight, "Max Height:", maxHeight);
 }
 
 await loadDEM();

@@ -8,7 +8,12 @@ class Graph {
     }
 
     getNodeKey(x, y, z) {
-        return `${x},${y},${z}`;
+        // Round coordinates to improve node matching
+        const precisionFactor = 1000;
+        const rx = Math.round(x * precisionFactor) / precisionFactor;
+        const ry = Math.round(y * precisionFactor) / precisionFactor;
+        const rz = Math.round(z * precisionFactor) / precisionFactor;
+        return `${rx},${ry},${rz}`;
     }
 
     getEdgeKey(node1, node2) {
@@ -41,7 +46,13 @@ class Graph {
     }
 
     removeNode(node) {
-        var key = this.getNodeKey(node.value.x, node.value.y, node.value.z);
+        const key = this.getNodeKey(node.value.x, node.value.y, node.value.z);
+        
+        // Also remove any references to this node in neighbors
+        for (const otherNode of this.nodes.values()) {
+            otherNode.neighbors.delete(node);
+        }
+        
         return this.nodes.delete(key);
     }
 
@@ -53,6 +64,7 @@ class Graph {
         const visited = new Set();
         const queue = [start];
         const result = [];
+        
         while (queue.length > 0) {
             const node = queue.shift();
             if (visited.has(node)) {
@@ -64,145 +76,119 @@ class Graph {
                 queue.push(neighbor);
             }
         }
+        
         return result;
     }
 
     connectedComponents() {
         const visited = new Set();
         const components = [];
+        
         for (const node of this.nodes.values()) {
             if (visited.has(node)) {
                 continue;
             }
             const component = this.bfs(node);
             components.push(component);
-            for (const node of component) {
-                visited.add(node);
+            
+            for (const componentNode of component) {
+                visited.add(componentNode);
             }
         }
+        
         return components;
     }
 
-
-    precomputePaths(targetNodes) {
-        // Clear the existing path cache
-        this.pathCache.clear();
-
-        // For each target node, compute paths from all nodes to it
-        for (const target of targetNodes) {
-            const distances = new Map();
-            const previous = new Map();
-            const queue = new PriorityQueue();
-
-            // Initialize distances and queue
-            for (const node of this.nodes.values()) {
-                distances.set(node, Infinity);
-                queue.enqueue(node, Infinity);
-            }
-            distances.set(target, 0);
-            queue.enqueue(target, 0);
-
-            // Dijkstra's algorithm
-            while (!queue.isEmpty()) {
-                const current = queue.dequeue();
-
-                // If we've reached infinity distance, no more paths to process
-                if (distances.get(current) === Infinity) break;
-
-                for (const [neighbor, weight] of current.neighbors.entries()) {
-                    const distance = distances.get(current) + weight;
-
-                    if (distance < distances.get(neighbor)) {
-                        distances.set(neighbor, distance);
-                        previous.set(neighbor, current);
-                        queue.enqueue(neighbor, distance);
-                    }
+    // Dijkstra algorithm to find shortest paths from a target node to all other nodes
+    dijkstra(target) {
+        const distances = new Map();
+        const predecessors = new Map();
+        const queue = new PriorityQueue();
+        
+        // Initialize distances
+        for (const node of this.nodes.values()) {
+            distances.set(node, Infinity);
+            predecessors.set(node, null);
+        }
+        
+        // Set distance to target as 0
+        distances.set(target, 0);
+        
+        // Add target to queue
+        queue.enqueue(target, 0);
+        
+        while (!queue.isEmpty()) {
+            const current = queue.dequeue();
+            const currentDistance = distances.get(current);
+            
+            // For each neighbor
+            for (const [neighbor, weight] of current.neighbors.entries()) {
+                const distance = currentDistance + weight;
+                
+                // If we found a shorter path
+                if (distance < distances.get(neighbor)) {
+                    distances.set(neighbor, distance);
+                    predecessors.set(neighbor, current);
+                    queue.enqueue(neighbor, distance);
                 }
             }
-
-            // Store the path information in the cache
-            const targetKey = this.getNodeKey(target.value.x, target.value.y, target.value.z);
-            this.pathCache.set(targetKey, { previous, distances });
         }
-    }
-
-    getNextNodeToTarget(source, target) {
-        // If source and target are the same, return the source
-        if (source === target) return source;
-
-        const targetKey = this.getNodeKey(target.value.x, target.value.y, target.value.z);
-
-        // Check if we have precomputed paths for this target
-        if (!this.pathCache.has(targetKey)) {
-            // If not precomputed, compute it on-demand
-            this.precomputePaths([target]);
-        }
-
-        const { previous } = this.pathCache.get(targetKey);
-
-        // Build the path from target to source
-        let path = [];
-        let current = source;
-
-        // If there's no path to the target
-        if (!previous.has(source)) {
-            return null;
-        }
-
-        // Reconstruct the path
-        while (current !== target) {
-            path.push(current);
-            current = previous.get(current);
-
-            // Safety check to prevent infinite loops
-            if (!current) return null;
-        }
-
-        // Return the first node in the path after the source
-        return path.length > 1 ? path[1] : previous.get(source);
-    }
-
-    getPathToTarget(source, target) {
-        // If source and target are the same, return just the source
-        if (source === target) return [source];
-
-        const targetKey = this.getNodeKey(target.value.x, target.value.y, target.value.z);
-
-        // Check if we have precomputed paths for this target
-        if (!this.pathCache.has(targetKey)) {
-            // If not precomputed, compute it on-demand
-            this.precomputePaths([target]);
-        }
-
-        const { previous } = this.pathCache.get(targetKey);
-
-        // Build the path from source to target
-        let path = [];
-        let current = source;
-
-        // If there's no path to the target
-        if (!previous.has(source)) {
-            return [];
-        }
-
-        // Reconstruct the path
-        while (current !== target) {
-            path.push(current);
-            current = previous.get(current);
-
-            // Safety check to prevent infinite loops
-            if (!current) return [];
-        }
-
-        // Add the target to the path
-        path.push(target);
-
-        return path;
+        
+        return { distances, predecessors };
     }
     
+    // Precompute paths from every target to all other nodes
+    precomputePaths(targets) {
+        this.pathCache.clear();
+        
+        // Run Dijkstra from each target
+        for (const target of targets) {
+            const targetKey = this.getNodeKey(
+                target.value.x, 
+                target.value.y, 
+                target.value.z
+            );
+            
+            const pathData = this.dijkstra(target);
+            this.pathCache.set(targetKey, pathData);
+        }
+    }
 
+    // Find closest node to a point
+    findClosestNode(point) {
+        let closestNode = null;
+        let closestDistance = Infinity;
+        
+        for (const node of this.nodes.values()) {
+            const distance = node.value.distanceTo(point);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestNode = node;
+            }
+        }
+        
+        return closestNode;
+    }
     
-
+    // Find k nearest neighbors to a node
+    findKNearestNeighbors(node, k) {
+        const distances = [];
+        
+        for (const otherNode of this.nodes.values()) {
+            if (otherNode !== node) {
+                distances.push({
+                    node: otherNode,
+                    distance: node.value.distanceTo(otherNode.value)
+                });
+            }
+        }
+        
+        // Sort by distance
+        distances.sort((a, b) => a.distance - b.distance);
+        
+        // Return k nearest
+        return distances.slice(0, k).map(item => item.node);
+    }
 }
 
 export { Graph };
