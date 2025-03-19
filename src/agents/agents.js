@@ -1,206 +1,206 @@
 import * as THREE from 'three';
 
-class Agent {
-    constructor(node, targetNode) {
-        this.currentNode = node;
-        this.targetNode = targetNode;
-        this.progress = 0;
-        this.nextNode = null;
-        
-        // Randomize speed for each agent (units per second)
-        this.speed = 30 + Math.random() * 40; // Speed between 30-70
-        
-        // Add stuck detection properties
-        this.stuckTime = 0;
-        this.stuckThreshold = 3000; // 3 seconds of being stuck
-        this.lastPosition = new THREE.Vector3().copy(node.value);
-        this.movementThreshold = 2; // Minimum movement to not be considered stuck
-        
-        // Social distancing settings
-        this.socialDistance = 15;
-        
-        // Keep track of alternate paths and visited nodes to avoid loops
-        this.visitedNodes = new Set();
-        this.visitedNodes.add(this.getNodeKey(node));
-        this.alternatePathAttempts = 0;
-        this.maxAlternateAttempts = 3;
-        
-        // Create visual representation
+export class Agent {
+    constructor(node, target) {
+        // Visual representation
         this.mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(5),
+            new THREE.SphereGeometry(3),
             new THREE.MeshBasicMaterial({ color: 0xff0000 })
         );
         this.mesh.position.copy(node.value);
         
-        // For interpolation between ticks
-        this.previousPosition = new THREE.Vector3().copy(node.value);
-        this.targetPosition = new THREE.Vector3().copy(node.value);
+        // Navigation properties
+        this.currentNode = node;
+        this.targetNode = target;
+        this.nextNode = null;
+        this.path = []; // Store full path to target
+        this.pathIndex = 0;
+        
+        // Movement properties
+        this.position = node.value.clone();
+        this.maxSpeed = 10 + Math.random() * 10; // Random speed variation
+        this.currentSpeed = this.maxSpeed; // Current speed of the agent
+        
+        // Progress tracking along current road segment
+        this.segmentStart = null;
+        this.segmentEnd = null;
+        this.segmentProgress = 0;
+        this.segmentLength = 0;
+        
+        // Status properties
+        this.stuckTime = 0;
+        this.stuckThreshold = 2000; // milliseconds before considering stuck
+        this.isStuck = false;
+        this.reachedTarget = false;
+        this.active = true; // Flag to track if agent should be updated
     }
-
-    getNodeKey(node) {
-        return `${node.value.x},${node.value.y},${node.value.z}`;
-    }
-
-    update(graph, deltaTimeMs, tickMultiplier) {
-        // Convert deltaTime from ms to seconds
-        const deltaTime = deltaTimeMs / 1000;
-        
-        // Store previous position for interpolation
-        this.previousPosition.copy(this.mesh.position);
-        
-        // If we've reached the target, nothing more to do
-        if (this.currentNode === this.targetNode) return;
-
-        // Check if we're stuck
-        if (this.detectStuck(deltaTimeMs)) {
-            this.handleStuck(graph);
-        }
-
-        // If we don't have a next node yet, get it from the precomputed path
-        if (!this.nextNode) {
-            this.nextNode = graph.getNextNodeToTarget(this.currentNode, this.targetNode);
-            if (!this.nextNode) return; // No path exists
-            this.progress = 0;
-        }
-
-        // Calculate movement with fixed time step
-        let edgeLength = this.currentNode.value.distanceTo(this.nextNode.value);
-        let stepSize = this.speed * tickMultiplier * deltaTime;
-
-        // Apply social distancing - slow down if too close to other agents
-        stepSize = this.applySocialDistancing(stepSize);
-
-        // Update progress along the edge
-        this.progress = Math.min(this.progress + stepSize, edgeLength);
-        let alpha = this.progress / edgeLength;
-        
-        // Calculate new position
-        this.targetPosition.lerpVectors(this.currentNode.value, this.nextNode.value, alpha);
-        
-        // Update mesh position directly (no interpolation in update loop)
-        this.mesh.position.copy(this.targetPosition);
-
-        // When we reach the next node
-        if (this.progress >= edgeLength) {
-            this.mesh.position.copy(this.nextNode.value);
-            this.currentNode = this.nextNode;
-            this.visitedNodes.add(this.getNodeKey(this.currentNode));
-            this.nextNode = graph.getNextNodeToTarget(this.currentNode, this.targetNode);
-            this.progress = 0;
-            this.stuckTime = 0; // Reset stuck timer when reaching a new node
-        }
-    }
-
-    detectStuck(deltaTime) {
-        // Calculate distance moved since last frame
-        const distanceMoved = this.mesh.position.distanceTo(this.lastPosition);
-        
-        // If we didn't move much, increment stuck time
-        if (distanceMoved < this.movementThreshold) {
-            this.stuckTime += deltaTime;
-            return this.stuckTime > this.stuckThreshold;
-        } else {
-            // Reset stuck timer if we're moving fine
-            this.stuckTime = 0;
-            this.lastPosition.copy(this.mesh.position);
-            return false;
-        }
-    }
-
-    handleStuck(graph) {
-        // If we've tried too many alternate paths, give up and teleport to a new node
-        if (this.alternatePathAttempts >= this.maxAlternateAttempts) {
-            console.log("Agent completely stuck, teleporting to a new random node");
-            this.currentNode = graph.getRandomNode();
-            this.mesh.position.copy(this.currentNode.value);
-            this.nextNode = null;
-            this.progress = 0;
-            this.stuckTime = 0;
-            this.alternatePathAttempts = 0;
-            this.visitedNodes.clear();
-            this.visitedNodes.add(this.getNodeKey(this.currentNode));
-            return;
-        }
-        
-        // Find an alternate path
-        this.alternatePathAttempts++;
-        console.log(`Agent stuck for ${this.stuckTime}ms, trying alternate path (attempt ${this.alternatePathAttempts})`);
-        
-        // Look for any unvisited neighbor
-        let foundAlternatePath = false;
-        
-        for (const [neighbor, _] of this.currentNode.neighbors.entries()) {
-            const neighborKey = this.getNodeKey(neighbor);
-            if (!this.visitedNodes.has(neighborKey)) {
-                // Found an unvisited neighbor, take that path
-                this.nextNode = neighbor;
-                this.progress = 0;
-                this.stuckTime = 0;
-                foundAlternatePath = true;
-                break;
-            }
-        }
-        
-        // If no unvisited neighbors, reset and try different path
-        if (!foundAlternatePath) {
-            // Find the neighbor closest to the target
-            let bestDistance = Infinity;
-            let bestNeighbor = null;
+    
+    // Calculate path to target once
+    calculatePath(graph) {
+        if (this.path.length === 0) {
+            this.path = graph.getPathToTarget(this.currentNode, this.targetNode);
+            this.pathIndex = 0;
             
-            for (const [neighbor, _] of this.currentNode.neighbors.entries()) {
-                const distToTarget = neighbor.value.distanceTo(this.targetNode.value);
-                if (distToTarget < bestDistance) {
-                    bestDistance = distToTarget;
-                    bestNeighbor = neighbor;
-                }
-            }
-            
-            if (bestNeighbor) {
-                this.nextNode = bestNeighbor;
-                this.progress = 0;
-                this.stuckTime = 0;
+            // If path exists, set first target after current node
+            if (this.path.length > 1) {
+                this.nextNode = this.path[1];
+                // Initialize first road segment
+                this.setupNextSegment();
             } else {
-                // Complete deadend - teleport to a new node
-                this.currentNode = graph.getRandomNode();
-                this.mesh.position.copy(this.currentNode.value);
+                // If no path or we're already at target
+                this.nextNode = this.targetNode;
+                this.reachedTarget = true;
+            }
+        }
+        
+        return this.path.length > 0;
+    }
+    
+    // Setup the next road segment to travel on
+    setupNextSegment() {
+        if (!this.nextNode) return;
+        
+        this.segmentStart = this.currentNode.value.clone();
+        this.segmentEnd = this.nextNode.value.clone();
+        this.segmentLength = this.segmentStart.distanceTo(this.segmentEnd);
+        this.segmentProgress = 0;
+    }
+    
+    // Update agent position along the road network
+    update(graph, deltaTime, timeMultiplier, agents) {
+        // Skip update if agent is inactive
+        if (!this.active) return false;
+        
+        // Calculate time step in seconds, with multiplier
+        const timeStep = (deltaTime / 1000) * timeMultiplier;
+        
+        // Ensure we have a path
+        if (!this.calculatePath(graph)) return false;
+        
+        // Check if we've reached the target
+        if (this.reachedTarget) {
+            this.active = false;
+            this.mesh.visible = false;
+            return true; // Signal that agent reached target
+        }
+        
+        // Check if agent is stuck
+        this.checkIfStuck(deltaTime);
+        
+        // Only move if not stuck
+        if (!this.isStuck) {
+            // Check for collisions with other agents
+            this.checkCollisions(agents);
+            
+            // Move along the current road segment
+            this.moveAlongSegment(timeStep);
+            
+            // Update mesh position
+            this.mesh.position.copy(this.position);
+            
+            // Check if reached next node
+            this.checkNodeProgress();
+        }
+        
+        return false; // Not reached target yet
+    }
+    
+    // Check for collisions with other agents
+    checkCollisions(agents) {
+        const safeDistance = 10; // Minimum safe distance between agents
+        
+        for (const other of agents) {
+            if (other === this || !other.active || other.currentNode !== this.currentNode || other.nextNode !== this.nextNode) {
+                continue;
+            }
+            
+            // Calculate the distance between this agent and the other agent
+            const distance = this.position.distanceTo(other.position);
+            
+            // If the other agent is ahead and too close, slow down or stop
+            if (other.segmentProgress > this.segmentProgress && distance < safeDistance) {
+                this.currentSpeed = Math.max(0, this.currentSpeed - 0.1); // Slow down
+                return;
+            }
+        }
+        
+        // Gradually restore speed if no obstacles
+        if (this.currentSpeed < this.maxSpeed) {
+            this.currentSpeed = Math.min(this.maxSpeed, this.currentSpeed + 0.1);
+        }
+    }
+    
+    // Move strictly along the current road segment
+    moveAlongSegment(timeStep) {
+        if (!this.segmentStart || !this.segmentEnd) return;
+        
+        // Calculate how much to move along this segment based on current speed
+        const stepDistance = this.currentSpeed * timeStep;
+        
+        // Convert to progress percentage along segment
+        const progressIncrement = stepDistance / this.segmentLength;
+        
+        // Update progress
+        this.segmentProgress = Math.min(this.segmentProgress + progressIncrement, 1);
+        
+        // Calculate new position by linear interpolation along segment
+        this.position.lerpVectors(this.segmentStart, this.segmentEnd, this.segmentProgress);
+    }
+    
+    // Check if we've reached the next node in the path
+    checkNodeProgress() {
+        if (!this.nextNode) return;
+        
+        // If we've reached the end of the segment
+        if (this.segmentProgress >= 1) {
+            // Update current node
+            this.currentNode = this.nextNode;
+            this.pathIndex++;
+            
+            // Check if we reached the target
+            if (this.currentNode === this.targetNode) {
+                this.reachedTarget = true;
+                return;
+            }
+            
+            // Get next node in path
+            if (this.pathIndex < this.path.length) {
+                this.nextNode = this.path[this.pathIndex];
+                // Setup next segment
+                this.setupNextSegment();
+            } else {
+                // We've reached the end of our path
                 this.nextNode = null;
-                this.progress = 0;
-                this.stuckTime = 0;
             }
         }
     }
-
-    applySocialDistancing(stepSize) {
-        // Only apply social distancing if we have access to all agents
-        if (!Agent.allAgents || Agent.allAgents.length === 0) {
-            console.warn("Agent.allAgents is not set or empty, skipping social distancing");
-            return stepSize;
-        }
-        
-        let closestDistance = Infinity;
-        
-        // Check distance to all other agents
-        for (const other of Agent.allAgents) {
-            if (other === this) continue;
+    
+    // Check if agent is stuck (not making progress)
+    checkIfStuck(deltaTime) {
+        // Consider stuck if there's no valid path or no next node
+        if (this.path.length === 0 || !this.nextNode) {
+            this.stuckTime += deltaTime;
             
-            const distance = this.mesh.position.distanceTo(other.mesh.position);
-            if (distance < closestDistance) {
-                closestDistance = distance;
+            if (this.stuckTime > this.stuckThreshold) {
+                this.isStuck = true;
             }
+        } else {
+            // Not stuck if we have a valid path and next node
+            this.stuckTime = 0;
+            this.isStuck = false;
         }
+    }
+    
+    // Try to unstuck agent by recalculating path
+    attemptUnstuck(graph) {
+        if (!this.isStuck) return;
         
-        // Apply social distancing by reducing speed when too close
-        if (closestDistance < this.socialDistance) {
-            // Scale speed based on how close we are to others
-            const slowFactor = Math.max(0.2, closestDistance / this.socialDistance);
-            return stepSize * slowFactor;
-        }
+        // Try to recalculate path
+        this.path = [];
+        this.calculatePath(graph);
         
-        return stepSize;
+        // Reset stuck timer
+        this.stuckTime = 0;
+        this.isStuck = false;
     }
 }
-
-// Static array for all agents to improve social distancing logic
-Agent.allAgents = [];
-
-export { Agent };
