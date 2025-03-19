@@ -7,6 +7,7 @@ import { transformInM } from './data/wgs84.js';
 import { Graph } from './datastructures/graph.js';
 import { Agent } from './agents/agents.js';
 import { getElevation } from './data/elevation.js';
+import { createMapTexture } from './data/terrain.js';
 
 const stats = new Stats();
 stats.showPanel(0);
@@ -74,120 +75,11 @@ loadingText.style.fontFamily = 'Arial, sans-serif';
 loadingText.textContent = 'Loading map texture...';
 document.body.appendChild(loadingText);
 
-function latLngToTilePixel(lat, lng, zoom) {
-    const n = Math.pow(2, zoom);
-    const xtile = (lng + 180) / 360 * n;
-    const ytile = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
-    
-    // Get the exact tile
-    const xtileFloor = Math.floor(xtile);
-    const ytileFloor = Math.floor(ytile);
-    
-    // Get the pixel position within the tile (0-255)
-    const xpixel = Math.floor((xtile - xtileFloor) * 256);
-    const ypixel = Math.floor((ytile - ytileFloor) * 256);
-    
-    return { 
-        x: xtileFloor, 
-        y: ytileFloor,
-        pixelX: xpixel,
-        pixelY: ypixel
-    };
-}
-
-// Function to create canvas with properly aligned map tiles
-async function createMapTexture() {
-    // Choose an appropriate zoom level
-    const zoom = 15; // Adjust as needed for your area
-    
-    // Calculate tile coordinates for bounding box corners with pixel precision
-    const nwTile = latLngToTilePixel(box[3], box[0], zoom); // Northwest corner
-    const seTile = latLngToTilePixel(box[1], box[2], zoom); // Southeast corner
-    
-    // Calculate how many tiles we need horizontally and vertically
-    const xTiles = [];
-    for (let x = nwTile.x; x <= seTile.x; x++) {
-        xTiles.push(x);
-    }
-    
-    const yTiles = [];
-    for (let y = nwTile.y; y <= seTile.y; y++) {
-        yTiles.push(y);
-    }
-    
-    // Calculate the total width and height in pixels
-    const totalWidth = (xTiles.length * 256) - nwTile.pixelX - (256 - seTile.pixelX);
-    const totalHeight = (yTiles.length * 256) - nwTile.pixelY - (256 - seTile.pixelY);
-    
-    // Create a canvas to hold the cropped map area
-    const canvas = document.createElement('canvas');
-    canvas.width = totalWidth;
-    canvas.height = totalHeight;
-    const ctx = canvas.getContext('2d');
-    
-    // Function to load a single tile
-    function loadTile(x, y) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            // Using OpenStreetMap tile server (consider using a different provider if needed)
-            img.src = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
-            img.crossOrigin = "Anonymous"; // Important for CORS
-            img.onload = () => resolve(img);
-            img.onerror = () => {
-                // If tile fails to load, create a placeholder
-                const placeholder = document.createElement('canvas');
-                placeholder.width = 256;
-                placeholder.height = 256;
-                const pctx = placeholder.getContext('2d');
-                pctx.fillStyle = '#F1EEE6'; // Light beige background
-                pctx.fillRect(0, 0, 256, 256);
-                pctx.strokeStyle = '#CCCCCC';
-                pctx.strokeRect(0, 0, 256, 256);
-                pctx.font = '10px Arial';
-                pctx.fillStyle = '#999999';
-                pctx.fillText(`Tile ${x},${y} failed`, 5, 20);
-                resolve(placeholder);
-            };
-        });
-    }
-    
-    // Load all tiles concurrently
-    const loadPromises = [];
-    for (let i = 0; i < yTiles.length; i++) {
-        const y = yTiles[i];
-        for (let j = 0; j < xTiles.length; j++) {
-            const x = xTiles[j];
-            
-            // Calculate where to draw this tile on the canvas
-            let destX = j * 256 - nwTile.pixelX;
-            let destY = i * 256 - nwTile.pixelY;
-            
-            const tilePromise = loadTile(x, y).then(img => {
-                // Draw the tile at the correct position on the canvas
-                ctx.drawImage(img, destX, destY);
-            });
-            loadPromises.push(tilePromise);
-        }
-    }
-    
-    // Wait for all tiles to load
-    await Promise.all(loadPromises);
-    
-    // Create a THREE.js texture from the canvas
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    
-    // The texture's UV mapping needs to be flipped on the y-axis for THREE.js
-    texture.flipY = true;
-    
-    return texture;
-}
 
 // Apply texture and set up terrain
 async function setupTerrain() {
     try {
-        const mapTexture = await createMapTexture();
+        const mapTexture = await createMapTexture(box);
         
         // Create material with the map texture
         const material = new THREE.MeshPhongMaterial({
@@ -230,8 +122,6 @@ async function setupTerrain() {
         // Remove loading indicator
         document.body.removeChild(loadingText);
         
-        // Add texture opacity control
-        addMapTextureControls();
         
     } catch (error) {
         console.error("Error loading map texture:", error);
@@ -320,79 +210,14 @@ function setupRoads() {
     const roadGrid = new THREE.LineSegments(roadGeometry, roadMaterial);
     roadGrid.name = "roadGrid"; // Add name for later reference
     scene.add(roadGrid);
-
-    // Raycasting setup
-    setupRaycasting(roadGrid, positions);
     
     return positions; // Return positions for raycasting
 }
 
-// Extract raycasting setup code to a function
-function setupRaycasting(roadGrid, positions) {
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    let hoveredSegment = null;
-
-    // Highlight Material
-    const highlightMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 });
-
-    // Add event listener for mouse movement
-    window.addEventListener('mousemove', onMouseMove, false);
-
-    function onMouseMove(event) {
-        // Convert mouse position to normalized device coordinates (-1 to +1)
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-
-        // Perform raycasting
-        const intersects = raycaster.intersectObject(roadGrid);
-
-        if (intersects.length > 0) {
-            const index = intersects[0].index; // Get the index of the intersected vertex pair
-            if (hoveredSegment !== index) {
-                // Reset previous segment if different
-                resetHighlight();
-                highlightSegment(index);
-                hoveredSegment = index;
-            }
-        } else {
-            resetHighlight();
-            hoveredSegment = null;
-        }
-    }
-
-    function highlightSegment(index) {
-        // Each segment has two points (index and index + 1)
-        const segmentVertices = [
-            positions[index * 3], positions[index * 3 + 1], positions[index * 3 + 2],
-            positions[index * 3 + 3], positions[index * 3 + 4], positions[index * 3 + 5]
-        ];
-
-        // Create a new line for highlighting
-        const highlightGeometry = new THREE.BufferGeometry();
-        highlightGeometry.setAttribute('position', new THREE.Float32BufferAttribute(segmentVertices, 3));
-        
-        const highlightLine = new THREE.Line(highlightGeometry, highlightMaterial);
-        highlightLine.name = "highlightedLine";
-
-        // Remove old highlight if exists
-        resetHighlight();
-        
-        scene.add(highlightLine);
-    }
-
-    function resetHighlight() {
-        const oldHighlight = scene.getObjectByName("highlightedLine");
-        if (oldHighlight) scene.remove(oldHighlight);
-    }
-}
-
-// Extract agent setup code to a function with nearest-target behavior
+// Updated setupAgents function with the new agent behavior
 function setupAgents() {
     // Create multiple target nodes
-    const numberOfTargets = 5; // Adjust as needed
+    const numberOfTargets = 5;
     const targetNodes = [];
     
     for (let i = 0; i < numberOfTargets; i++) {
@@ -403,7 +228,7 @@ function setupAgents() {
         const targetNodeMesh = new THREE.Mesh(
             new THREE.SphereGeometry(6),
             new THREE.MeshBasicMaterial({ 
-                color: new THREE.Color(0, 1 - (i * 0.2), 0)  // Different shades of green
+                color: new THREE.Color(0, 1 - (i * 0.2), 0)
             })
         );
         targetNodeMesh.position.copy(targetNode.value);
@@ -417,7 +242,7 @@ function setupAgents() {
     console.timeEnd("Precomputing paths");
     console.log(`Precomputed paths to ${targetNodes.length} targets`);
     
-    // Create agents with nearest target assignment using path distances
+    // Create agents with nearest target assignment
     const agents = [];
     const numAgents = 1000;
     
@@ -425,7 +250,7 @@ function setupAgents() {
     for (let i = 0; i < numAgents; i++) {
         let randomNode = graph.getRandomNode();
         
-        // Find the nearest target using actual path distances from the precomputed paths
+        // Find nearest target
         let nearestTarget = null;
         let shortestPathDistance = Infinity;
         
@@ -442,7 +267,7 @@ function setupAgents() {
             }
         }
         
-        // If no path found, fallback to Euclidean distance
+        // Fallback to Euclidean distance if needed
         if (!nearestTarget) {
             let shortestDistance = Infinity;
             for (const target of targetNodes) {
@@ -467,93 +292,84 @@ function setupAgents() {
     }
     console.timeEnd("Assigning agents to nearest targets");
 
-    // Create Slider UI
-    const sliderContainer = document.createElement("div");
-    sliderContainer.style.position = "absolute";
-    sliderContainer.style.top = "100px";
-    sliderContainer.style.left = "10px";
-    sliderContainer.style.background = "rgba(255, 255, 255, 0.8)";
-    sliderContainer.style.padding = "10px";
-    sliderContainer.style.borderRadius = "5px";
-    sliderContainer.id = "sliderContainer";
-
-    const sliderLabel = document.createElement("label");
-    sliderLabel.innerText = "Time multiplier:";
-    sliderLabel.style.display = "block";
-
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.min = 0;
-    slider.max = 50;
-    slider.value = 1;
-    slider.style.width = "100px";
-
-    const sliderValue = document.createElement("span");
-    sliderValue.innerText = ` ${slider.value}`;
-
-    const tickMultiplier = { value: parseInt(slider.value) };
+    // Create UI controls
+    createAgentControls(agents);
     
-    slider.oninput = function () {
-        tickMultiplier.value = parseInt(slider.value);
-        sliderValue.innerText = ` ${slider.value}`;
+    return { 
+        agents,
+        tickMultiplier: { value: 1 },
+        targetNodes,
+        unstuckInterval: { value: 500 } // ms between unstuck attempts
     };
-
-    // Add path cache stats
-    const cacheStats = document.createElement("div");
-    cacheStats.style.marginTop = "10px";
-    cacheStats.innerHTML = `<b>Path cache:</b> ${targetNodes.length} targets precomputed`;
-
-   
-
-    sliderContainer.appendChild(sliderLabel);
-    sliderContainer.appendChild(slider);
-    sliderContainer.appendChild(sliderValue);
-    sliderContainer.appendChild(cacheStats);
-    document.body.appendChild(sliderContainer);
-
-    // Return values needed for animation
-    return { agents, tickMultiplier, targetNodes };
 }
 
-
-// Add map texture controls
-function addMapTextureControls() {
+// Create UI controls for the simulation
+function createAgentControls(agents) {
     const controlsContainer = document.createElement("div");
     controlsContainer.style.position = "absolute";
-    controlsContainer.style.top = "200px";
+    controlsContainer.style.top = "100px";
     controlsContainer.style.left = "10px";
     controlsContainer.style.background = "rgba(255, 255, 255, 0.8)";
     controlsContainer.style.padding = "10px";
     controlsContainer.style.borderRadius = "5px";
-    controlsContainer.id = "mapControlsContainer";
+    controlsContainer.id = "agentControlsContainer";
 
-    const opacityLabel = document.createElement("label");
-    opacityLabel.innerText = "Map opacity:";
-    opacityLabel.style.display = "block";
+    // Time multiplier slider
+    const timeLabel = document.createElement("label");
+    timeLabel.innerText = "Simulation speed:";
+    timeLabel.style.display = "block";
+    timeLabel.style.marginBottom = "5px";
 
-    const opacitySlider = document.createElement("input");
-    opacitySlider.type = "range";
-    opacitySlider.min = 0;
-    opacitySlider.max = 100;
-    opacitySlider.value = 90;
-    opacitySlider.style.width = "100px";
+    const timeSlider = document.createElement("input");
+    timeSlider.type = "range";
+    timeSlider.min = 0;
+    timeSlider.max = 50;
+    timeSlider.value = 1;
+    timeSlider.style.width = "150px";
 
-    const opacityValue = document.createElement("span");
-    opacityValue.innerText = ` ${opacitySlider.value}%`;
+    const timeValue = document.createElement("span");
+    timeValue.innerText = ` ${timeSlider.value}x`;
+    timeValue.style.marginLeft = "5px";
 
-    opacitySlider.oninput = function() {
-        const opacity = parseInt(opacitySlider.value) / 100;
-        const terrain = scene.getObjectByName("terrain");
-        if (terrain && terrain.material) {
-            terrain.material.opacity = opacity;
-        }
-        opacityValue.innerText = ` ${opacitySlider.value}%`;
-    };
+    // Stats display
+    const statsContainer = document.createElement("div");
+    statsContainer.style.marginTop = "15px";
+    statsContainer.innerHTML = `<b>Agents:</b> <span id="activeAgents">${agents.length}</span> active / <span id="totalAgents">${agents.length}</span> total`;
+    
+    const stuckContainer = document.createElement("div");
+    stuckContainer.innerHTML = `<b>Stuck agents:</b> <span id="stuckAgents">0</span>`;
+    
+    const arrivedContainer = document.createElement("div");
+    arrivedContainer.innerHTML = `<b>Arrived at target:</b> <span id="arrivedAgents">0</span>`;
 
-    controlsContainer.appendChild(opacityLabel);
-    controlsContainer.appendChild(opacitySlider);
-    controlsContainer.appendChild(opacityValue);
+    // Add everything to the container
+    controlsContainer.appendChild(timeLabel);
+    controlsContainer.appendChild(timeSlider);
+    controlsContainer.appendChild(timeValue);
+    controlsContainer.appendChild(statsContainer);
+    controlsContainer.appendChild(stuckContainer);
+    controlsContainer.appendChild(arrivedContainer);
+    
     document.body.appendChild(controlsContainer);
+    
+    // Setup event handler
+    timeSlider.oninput = function() {
+        agentsData.tickMultiplier.value = parseFloat(timeSlider.value);
+        timeValue.innerText = ` ${timeSlider.value}x`;
+    };
+    
+    // Add button to reset simulation
+    const resetButton = document.createElement("button");
+    resetButton.innerText = "Reset Simulation";
+    resetButton.style.marginTop = "10px";
+    resetButton.style.padding = "5px";
+    resetButton.style.width = "100%";
+    resetButton.onclick = function() {
+        // Reload the page to reset simulation
+        location.reload();
+    };
+    
+    controlsContainer.appendChild(resetButton);
 }
 
 // Animation code
@@ -581,18 +397,75 @@ async function init() {
     animate();
 }
 
+// In the animation loop
 function animate() {
     stats.begin();
 
-    let deltaTime = performance.now() - lastUpdateTime;
-    lastUpdateTime = performance.now();
-    accumulatedTime += deltaTime;
+    // Calculate delta time
+    const currentTime = performance.now();
+    const deltaTime = currentTime - lastUpdateTime;
+    lastUpdateTime = currentTime;
     
-    while (accumulatedTime >= timeStep) {
+    // Skip if delta is unusually large (e.g., tab was inactive)
+    if (deltaTime < 100) {
+        // Update agent stats
+        let activeCount = 0;
+        let stuckCount = 0;
+        let arrivedCount = 0;
+        
+        // Process agent updates
         if (agentsData && agentsData.agents) {
-            agentsData.agents.forEach(agent => agent.update(graph, timeStep, agentsData.tickMultiplier.value));
+            // Process each agent
+            for (const agent of agentsData.agents) {
+                // Only update active agents
+                if (agent.active) {
+                    const arrived = agent.update(
+                        graph, 
+                        deltaTime, 
+                        agentsData.tickMultiplier.value,
+                        agentsData.agents
+                    );
+                    
+                    if (arrived) {
+                        arrivedCount++;
+                    } else {
+                        activeCount++;
+                        if (agent.isStuck) {
+                            stuckCount++;
+                        }
+                    }
+                } else {
+                    // Count arrived agents
+                    if (agent.reachedTarget) {
+                        arrivedCount++;
+                    }
+                }
+            }
+            
+            // Periodically try to unstuck agents
+            if (agentsData.lastUnstuckTime === undefined) {
+                agentsData.lastUnstuckTime = currentTime;
+            }
+            
+            if (currentTime - agentsData.lastUnstuckTime > agentsData.unstuckInterval.value) {
+                // Try to unstuck stuck agents
+                for (const agent of agentsData.agents) {
+                    if (agent.isStuck && agent.active) {
+                        agent.attemptUnstuck(graph);
+                    }
+                }
+                agentsData.lastUnstuckTime = currentTime;
+            }
         }
-        accumulatedTime -= timeStep;
+        
+        // Update stats display
+        const activeAgentsElem = document.getElementById("activeAgents");
+        const stuckAgentsElem = document.getElementById("stuckAgents");
+        const arrivedAgentsElem = document.getElementById("arrivedAgents");
+        
+        if (activeAgentsElem) activeAgentsElem.textContent = activeCount;
+        if (stuckAgentsElem) stuckAgentsElem.textContent = stuckCount;
+        if (arrivedAgentsElem) arrivedAgentsElem.textContent = arrivedCount;
     }
 
     requestAnimationFrame(animate);
@@ -640,3 +513,10 @@ init().then(() => {
     addMapToggleButton();
     console.log("Initialization complete");
 });
+
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}, false);
