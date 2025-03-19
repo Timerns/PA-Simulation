@@ -377,6 +377,7 @@ function createAgentControls(agents) {
     };
     
     controlsContainer.appendChild(resetButton);
+<<<<<<< HEAD
 }
 
 // Add this function to main.js
@@ -437,6 +438,8 @@ function addSimulationStats() {
             }
         }
     };
+=======
+>>>>>>> eaeb3af711ad05a348e27480f4e9eb2e2431a29e
 }
 
 // Animation code
