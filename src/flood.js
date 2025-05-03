@@ -20,7 +20,7 @@ export class Flood {
         this.friction = 0.1;
         this.minWaterHeight = 0.02;
         this.offset = -0.05;
-        this.evaporationRate = 0.0005;
+        this.evaporationRate = 0.0002;
         
         // Time accumulator for fixed timestep
         this.timeAccumulator = 0;

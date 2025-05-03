@@ -456,7 +456,7 @@ function startSimulation() {
 
     clearNodeVisualizations();
 
-    // flood = new Flood(scene, box, geometry);
+    flood = new Flood(scene, box, geometry);
 
     // Precompute paths to targets for efficiency
     console.time("Precomputing paths");
@@ -600,9 +600,9 @@ function animate() {
         let stuckCount = 0;
         let arrivedCount = 0;
 
-        // flood.addWaterAt(75, 100, 0.1, deltaTime, agentsData.tickMultiplier.value);
-        // flood.addWaterAt(155, 85, 0.1, deltaTime, agentsData.tickMultiplier.value);
-        // flood.update(deltaTime, agentsData.tickMultiplier.value);
+        flood.addWaterAt(75, 100, 0.05, deltaTime, agentsData.tickMultiplier.value);
+        flood.addWaterAt(155, 85, 0.05, deltaTime, agentsData.tickMultiplier.value);
+        flood.update(deltaTime, agentsData.tickMultiplier.value);
         
         // Process agent updates
         if (agentsData && agentsData.agents) {

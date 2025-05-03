@@ -200,6 +200,7 @@ tickMultiplierSlider.addEventListener('input', (event) => {
 
 
 
+
 var lastUpdateTime = performance.now();
 function animate() {
     stats.begin();
@@ -212,7 +213,6 @@ function animate() {
     
     flood.addWaterAt(75, 100, 0.05, deltaTime, tickMultiplier.value);
     flood.addWaterAt(155, 85, 0.05, deltaTime, tickMultiplier.value);
-    flood.addWaterAt(180, 40, 0.05, deltaTime, tickMultiplier.value);
     // flood.addWaterAt(37, 50, 0.05, deltaTime, tickMultiplier.value);
     // flood.addWaterAt(70, 42, 0.05, deltaTime, tickMultiplier.value);
     flood.update(deltaTime, tickMultiplier.value);

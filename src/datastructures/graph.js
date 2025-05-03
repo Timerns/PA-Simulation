@@ -1,19 +1,18 @@
 import { Node } from './node.js';
-import { PriorityQueue } from './priorityqueue.js';
 
 class Graph {
     constructor() {
         this.nodes = new Map();
-        this.pathCache = new Map(); // Cache for precomputed paths
+        this.computedShortestPath = new Map();
+
     }
 
     getNodeKey(x, y, z) {
-        // Round coordinates to improve node matching
-        const precisionFactor = 1000;
-        const rx = Math.round(x * precisionFactor) / precisionFactor;
-        const ry = Math.round(y * precisionFactor) / precisionFactor;
-        const rz = Math.round(z * precisionFactor) / precisionFactor;
-        return `${rx},${ry},${rz}`;
+        return `${x},${y},${z}`;
+    }
+
+    getNodeByKey(key) {
+        return this.nodes.get(key);
     }
 
     getEdgeKey(node1, node2) {
@@ -46,13 +45,7 @@ class Graph {
     }
 
     removeNode(node) {
-        const key = this.getNodeKey(node.value.x, node.value.y, node.value.z);
-        
-        // Also remove any references to this node in neighbors
-        for (const otherNode of this.nodes.values()) {
-            otherNode.neighbors.delete(node);
-        }
-        
+        var key = this.getNodeKey(node.value.x, node.value.y, node.value.z);
         return this.nodes.delete(key);
     }
 
@@ -64,7 +57,6 @@ class Graph {
         const visited = new Set();
         const queue = [start];
         const result = [];
-        
         while (queue.length > 0) {
             const node = queue.shift();
             if (visited.has(node)) {
@@ -76,119 +68,104 @@ class Graph {
                 queue.push(neighbor);
             }
         }
-        
         return result;
     }
 
     connectedComponents() {
         const visited = new Set();
         const components = [];
-        
         for (const node of this.nodes.values()) {
             if (visited.has(node)) {
                 continue;
             }
             const component = this.bfs(node);
             components.push(component);
-            
-            for (const componentNode of component) {
-                visited.add(componentNode);
+            for (const node of component) {
+                visited.add(node);
             }
         }
-        
         return components;
     }
 
-    // Dijkstra algorithm to find shortest paths from a target node to all other nodes
-    dijkstra(target) {
-        const distances = new Map();
-        const predecessors = new Map();
-        const queue = new PriorityQueue();
+    nearestNode(postion) {
+        let minDistance = Infinity;
+        let nearestNode = null;
+        for (const otherNode of this.nodes.values()) {
+            const distance = postion.distanceTo(otherNode.value);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestNode = otherNode;
+            }
+        }
+        return nearestNode;
+    }
+
+    computeShortestPath(targetNodes) {
+        this.computedShortestPath.clear();
         
-        // Initialize distances
+        // If no target nodes, return
+        if (targetNodes.length === 0) return;
+        
+        // Initialize distances and previous nodes
+        const distances = new Map();
+        const previous = new Map();
+        const unvisited = new Set();
+        
+        // Set initial distances: 0 for target nodes, Infinity for others
         for (const node of this.nodes.values()) {
-            distances.set(node, Infinity);
-            predecessors.set(node, null);
+            if (targetNodes.includes(node)) {
+                distances.set(node, 0);
+            } else {
+                distances.set(node, Infinity);
+            }
+            previous.set(node, null);
+            unvisited.add(node);
         }
         
-        // Set distance to target as 0
-        distances.set(target, 0);
-        
-        // Add target to queue
-        queue.enqueue(target, 0);
-        
-        while (!queue.isEmpty()) {
-            const current = queue.dequeue();
-            const currentDistance = distances.get(current);
+        // Dijkstra's algorithm
+        while (unvisited.size > 0) {
+            // Find the unvisited node with the smallest distance
+            let current = null;
+            let smallestDistance = Infinity;
+            for (const node of unvisited) {
+                const distance = distances.get(node);
+                if (distance < smallestDistance) {
+                    smallestDistance = distance;
+                    current = node;
+                }
+            }
             
-            // For each neighbor
-            for (const [neighbor, weight] of current.neighbors.entries()) {
-                const distance = currentDistance + weight;
+            // If no reachable nodes left, break
+            if (current === null || smallestDistance === Infinity) break;
+            
+            // Remove current from unvisited
+            unvisited.delete(current);
+            
+            // Update distances for neighbors
+            for (const [neighbor, weight] of current.neighbors) {
+                if (!unvisited.has(neighbor)) continue;
                 
-                // If we found a shorter path
-                if (distance < distances.get(neighbor)) {
-                    distances.set(neighbor, distance);
-                    predecessors.set(neighbor, current);
-                    queue.enqueue(neighbor, distance);
+                const alt = distances.get(current) + weight;
+                if (alt < distances.get(neighbor)) {
+                    distances.set(neighbor, alt);
+                    previous.set(neighbor, current);
                 }
             }
         }
         
-        return { distances, predecessors };
-    }
-    
-    // Precompute paths from every target to all other nodes
-    precomputePaths(targets) {
-        this.pathCache.clear();
-        
-        // Run Dijkstra from each target
-        for (const target of targets) {
-            const targetKey = this.getNodeKey(
-                target.value.x, 
-                target.value.y, 
-                target.value.z
-            );
-            
-            const pathData = this.dijkstra(target);
-            this.pathCache.set(targetKey, pathData);
+        // Store the next node to reach the nearest target for each node
+        for (const node of this.nodes.values()) {
+            if (previous.get(node) === null && !targetNodes.includes(node)) {
+                // No path to any target node
+                this.computedShortestPath.set(node, null);
+            } else {
+                this.computedShortestPath.set(node, previous.get(node));
+            }
         }
     }
 
-    // Find closest node to a point
-    findClosestNode(point) {
-        let closestNode = null;
-        let closestDistance = Infinity;
-        
-        for (const node of this.nodes.values()) {
-            const distance = node.value.distanceTo(point);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closestNode = node;
-            }
-        }
-        
-        return closestNode;
-    }
-    
-    // Find k nearest neighbors to a node
-    findKNearestNeighbors(node, k) {
-        const distances = [];
-        
-        for (const otherNode of this.nodes.values()) {
-            if (otherNode !== node) {
-                distances.push({
-                    node: otherNode,
-                    distance: node.value.distanceTo(otherNode.value)
-                });
-            }
-        }
-        
-        // Sort by distance
-        distances.sort((a, b) => a.distance - b.distance);
-        
-        // Return k nearest
-        return distances.slice(0, k).map(item => item.node);
-    }
+
+
 }
 
 export { Graph };
