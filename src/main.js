@@ -24,12 +24,15 @@ const buildings = await loadBuildingsFromOSM(box);
 const distribution = createBuildingDistribution(buildings, box, 500);
 const roads = await getRoadMap(...box);
 
+console.log(roads);
+
 const graph = new Graph();
 
 for (var road of roads) {
     for (let i = 0; i < road.geometry.length - 1; i++) {
         const node1 = graph.addNode(new THREE.Vector3(...transformInM(road.geometry[i], ...box)));
         const node2 = graph.addNode(new THREE.Vector3(...transformInM(road.geometry[i + 1], ...box)));
+
         const distance = node1.value.distanceTo(node2.value);
         graph.addEdge(node1, node2, distance);
         graph.addEdge(node2, node1, distance);
@@ -73,6 +76,7 @@ const geometry = new THREE.PlaneGeometry((box[2] - box[0]) * lonScale, (box[3] -
 
 // Apply texture and set up terrain
 async function setupTerrain() {
+    console.log("Setting up terrain with texture..."+ box);
     try {
         const mapTexture = await createMapTexture(box);
         
@@ -194,6 +198,8 @@ function setupRoads() {
     const roadGrid = new THREE.LineSegments(roadGeometry, roadMaterial);
     roadGrid.name = "roadGrid";
     scene.add(roadGrid);
+
+    console.log(roadGeometry.attributes.position.array)
 
     // Create visual representations of all nodes during initialization
     if (isInitializationPhase) {
@@ -481,7 +487,7 @@ function startSimulation() {
     
     agentsData = { 
         agents,
-        tickMultiplier: { value: 50 },
+        tickMultiplier: { value: 1 },
         targetNodes,
         unstuckInterval: { value: 500 } // ms between unstuck attempts
     };

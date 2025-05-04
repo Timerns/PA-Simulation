@@ -102,9 +102,9 @@ const heightSegments = 200;
 const geometry = new THREE.PlaneGeometry((box[2] - box[0]) * lonScale, (box[3] - box[1]) * latScale, widthSegments, heightSegments);
 
 // add a PlaneGeometry to the scene that is at level 0
-const plane = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x00ff00, side: THREE.DoubleSide }));
-plane.rotation.x = -Math.PI / 2; // Rotate to make it horizontal
-scene.add(plane);
+// const plane = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x00ff00, side: THREE.DoubleSide }));
+// plane.rotation.x = -Math.PI / 2; // Rotate to make it horizontal
+// scene.add(plane);
 
 
 async function setupTerrain() {
@@ -141,61 +141,29 @@ async function setupTerrain() {
         scene.add(terrain);
         
     } catch (error) {
-        console.error("Error loading map texture:", error);
-        
-        const material = new THREE.MeshPhongMaterial({
-            color: 0xB3C8CF,
-            side: THREE.DoubleSide,
-            wireframe: false
-        });
-        
-        const verticesPerRow = widthSegments + 1;
-        
-        for (let i = 0; i < geometry.attributes.position.count; i++) {
-            const x = i % verticesPerRow;
-            const y = Math.floor(i / verticesPerRow);
-            
-            const normalizedX = x / widthSegments;
-            const normalizedY = y / heightSegments;
-            
-            const lon = box[0] + normalizedX * (box[2] - box[0]);
-            const lat = box[3] - normalizedY * (box[3] - box[1]);
-            
-            const elevation = getElevation(lat, lon) - 10;
-            
-            geometry.attributes.position.array[i * 3 + 2] = elevation;
-        }
-        
-        geometry.attributes.position.needsUpdate = true;
-        
-        const terrain = new THREE.Mesh(geometry, material);
-        terrain.rotation.x = -Math.PI / 2;
-        terrain.name = "terrain";
-        scene.add(terrain);
-        
-        alert("Failed to load map texture. Using solid color instead.");
+        console.error("Error setting up terrain:", error);
     }
 }
 
-var tickMultiplier = { value: 1 };
+// var tickMultiplier = { value: 1 };
 
 // create a slider for the tick multiplier
-const tickMultiplierSlider = document.createElement('input');
-tickMultiplierSlider.type = 'range';
-tickMultiplierSlider.min = 1;
-tickMultiplierSlider.max = 50;
-tickMultiplierSlider.step = 1;
-tickMultiplierSlider.value = tickMultiplier.value;
-tickMultiplierSlider.style.position = 'absolute';
-tickMultiplierSlider.style.top = '100px';
-tickMultiplierSlider.style.left = '10px';
-tickMultiplierSlider.style.zIndex = 1000;
-document.body.appendChild(tickMultiplierSlider);
+// const tickMultiplierSlider = document.createElement('input');
+// tickMultiplierSlider.type = 'range';
+// tickMultiplierSlider.min = 1;
+// tickMultiplierSlider.max = 50;
+// tickMultiplierSlider.step = 1;
+// tickMultiplierSlider.value = tickMultiplier.value;
+// tickMultiplierSlider.style.position = 'absolute';
+// tickMultiplierSlider.style.top = '100px';
+// tickMultiplierSlider.style.left = '10px';
+// tickMultiplierSlider.style.zIndex = 1000;
+// document.body.appendChild(tickMultiplierSlider);
 
-tickMultiplierSlider.addEventListener('input', (event) => {
-    tickMultiplier.value = parseFloat(event.target.value);
-}
-);
+// tickMultiplierSlider.addEventListener('input', (event) => {
+//     tickMultiplier.value = parseFloat(event.target.value);
+// }
+// );
 
 
 
@@ -211,17 +179,17 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     
-    flood.addWaterAt(75, 100, 0.05, deltaTime, tickMultiplier.value);
-    flood.addWaterAt(155, 85, 0.05, deltaTime, tickMultiplier.value);
+    // flood.addWaterAt(75, 100, 0.05, deltaTime, tickMultiplier.value);
+    // flood.addWaterAt(155, 85, 0.05, deltaTime, tickMultiplier.value);
     // flood.addWaterAt(37, 50, 0.05, deltaTime, tickMultiplier.value);
     // flood.addWaterAt(70, 42, 0.05, deltaTime, tickMultiplier.value);
-    flood.update(deltaTime, tickMultiplier.value);
+    // flood.update(deltaTime, tickMultiplier.value);
     renderer.render(scene, camera);
     stats.end();
 }
 
 await setupTerrain();
-const flood = new Flood(scene, box, geometry);
+// const flood = new Flood(scene, box, geometry);
 animate();
 
 
