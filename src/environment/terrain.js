@@ -49,11 +49,16 @@ export default class Terrain {
       console.error("Geometry not generated yet!");
       return null;
     }
-
+    this.geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(this.geometry, this.texture);
     mesh.rotation.x = -Math.PI / 2; // Rotate to make it horizontal
     mesh.name = "terrain";
+    
     return mesh;
+  }
+
+  draw(scene) {
+    scene.add(this.getMesh());
   }
 }
 

@@ -10,6 +10,7 @@ export class Roads {
 
   async load(elevation, bounds) {
     this.roads = await this.getRoads(...bounds);
+    console.log(this.roads);
     this.generateGraph(elevation, bounds);
     this.filterRoadGraph();
   }
@@ -92,12 +93,12 @@ export class Roads {
 
   getNodeMesh(scene) {
     
-    const geometry = new THREE.SphereGeometry(5, 32, 32);
+    const geometry = new THREE.SphereGeometry(3, 8, 8);
     const nodes = this.graph.connectedComponents()[0];
     const nodeMeshes = [];
 
     for (const node of nodes) {
-      const material = new THREE.MeshBasicMaterial({ color: 0x0000ff  });
+      const material = new THREE.MeshBasicMaterial({ color: 0x3D3A4B  });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.copy(node.value);
       mesh.userData.node = node;
@@ -111,6 +112,11 @@ export class Roads {
     }
 
     return nodeMeshes;
+  }
+
+  draw(scene) {
+    const roadMesh = this.getMesh();
+    scene.add(roadMesh);
   }
 }
 

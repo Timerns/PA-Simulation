@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 
 export class Agent {
-  constructor(position, targets, graph) {
+  // walkSpeed in m/s
+  // driveSpeed in m/s
+  // reactionTime in s
+  constructor(position, targets, graph, walkSpeed = [1, 3], driveSpeed = [10, 20], reactionTime = [0, 300]) {
     // Main sphere body
     this.sphere = new THREE.Mesh(
       new THREE.SphereGeometry(3),
@@ -26,12 +29,16 @@ export class Agent {
     this.mesh.add(this.arrow);
     this.mesh.position.copy(position);
 
+    this.reactionTime = reactionTime[0] + Math.random() * (reactionTime[1] - reactionTime[0]);
+
     // Movement properties
+    this.inFlood = false;
     this.position = position.clone();
-    this.maxSpeed = 10 + Math.random() * 10;
-    this.walkingSpeed = 2;
+    this.maxSpeed = driveSpeed[0] + Math.random() * (driveSpeed[1] - driveSpeed[0]);
+    this.walkingSpeed = walkSpeed[0] + Math.random() * (walkSpeed[1] - walkSpeed[0]);
     this.currentSpeed = this.walkingSpeed;
     this.isDriving = false;
+    
 
     // Progress tracking
     this.targets = targets;
@@ -48,6 +55,7 @@ export class Agent {
     // Status properties
     this.reachedTarget = false;
     this.active = true;
+    this.isIdle = true
   }
 
   setupNextSegment(nextNode) {
@@ -63,22 +71,65 @@ export class Agent {
     this.updateArrowDirection();
   }
 
-  update(graph, deltaTime, timeMultiplier, agents) {
+  update(graph, deltaTime, timeMultiplier, agents, flood) {
     if (!this.active) return false;
-
+  
     const timeStep = (deltaTime / 1000) * timeMultiplier;
 
+    if(this.reactionTime > 0) {
+      this.reactionTime -= timeStep;
+      return;
+    } 
+    this.isIdle = false;
+  
     if (this.reachedTarget) {
       this.active = false;
       this.mesh.visible = false;
-      return true;
+      return;
     }
 
-    this.checkCollisions(agents);
-    this.moveAlongSegment(timeStep);
+    // Check flood status
+    if(!this.inFlood) {
+        this.inFlood = this.isInFlood(flood);
+    }
+    
+    if (this.inFlood) {
+      // Flooded behavior
+      this.sphere.material.color.set(0x800080); // Purple color
+      this.currentSpeed = this.walkingSpeed; // Always walking speed
+      this.isDriving = false;
+      
+      // Move along the path (roads) without checking collisions
+      this.moveAlongSegment(timeStep);
+    } else {
+      // Normal behavior
+      this.sphere.material.color.set(0xff0000); // Red color
+      this.currentSpeed = this.isDriving ? this.maxSpeed : this.walkingSpeed;
+      
+      // Only check collisions when not flooded
+      if (!this.inFlood) {
+        this.checkCollisions(agents);
+      }
+      this.moveAlongSegment(timeStep);
+    }
+    
     this.mesh.position.copy(this.position);
     this.checkNodeProgress(graph);
+  
+    return;
+  }
 
+  isInFlood(flood) {
+    if (!flood || !flood.waterHeight) return false;
+    
+    // Get the agent's position in flood grid coordinates
+    const x = Math.floor((this.position.x + flood.terrainGeometry.parameters.width/2) / (flood.terrainGeometry.parameters.width / (flood.widthSegments + 1)));
+    const y = Math.floor((this.position.z + flood.terrainGeometry.parameters.height/2) / (flood.terrainGeometry.parameters.height / (flood.heightSegments + 1)));
+    
+    const index = flood.getCellIndex(x, y);
+    if (index >= 0 && index < flood.waterHeight.length) {
+      return flood.waterHeight[index] > flood.minWaterHeight;
+    }
     return false;
   }
 
@@ -97,13 +148,11 @@ export class Agent {
     this.sphere.material.color.set(0xff0000); // Default color (red)
     this.bockedAgent = null;
 
-
     const agentsInFront = agents.filter(other => {
       if (other === this || !other.active || !other.isDriving) return false;
 
       const distance = this.position.distanceTo(other.position);
       if (distance >= safeDistance * 2) return false;
-
 
       const directionToOther = new THREE.Vector3()
         .subVectors(other.position, this.position)
@@ -112,21 +161,17 @@ export class Agent {
       return dotProduct >= angleThreshold;
     });
 
-
     agentsInFront.sort((a, b) =>
       this.position.distanceTo(a.position) - this.position.distanceTo(b.position)
     );
-
 
     for (const other of agentsInFront) {
       const distance = this.position.distanceTo(other.position);
 
       if (distance < stopDistance) {
         this.sphere.material.color.set(0x00ff00); // Change color to green
-
         this.currentSpeed = 0;
         this.bockedAgent = other;
-
 
         if (other.bockedAgent === this) {
           this.sphere.material.color.set(0x0000ff); // Change color to blue
@@ -142,10 +187,9 @@ export class Agent {
         const slowdownFactor = (distance - stopDistance) / (safeDistance - stopDistance);
         this.currentSpeed = Math.min(
           this.currentSpeed,
-          this.walkingSpeed * slowdownFactor + 0.1
+          this.currentSpeed * slowdownFactor + 0.1
         );
         this.bockedAgent = other;
-
         break;
       }
     }
@@ -169,10 +213,10 @@ export class Agent {
 
   checkNodeProgress(graph) {
     if (this.segmentProgress >= 1) {
-
       for (const target of this.targets) {
         if (this.segmentEnd.equals(target.value)) {
           this.reachedTarget = true;
+          this.active = false;
           return;
         }
       }

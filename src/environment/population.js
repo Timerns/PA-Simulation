@@ -12,60 +12,38 @@ export class PopulationDistribution {
   async fetchBuildings(bounds) {
     const [minLon, minLat, maxLon, maxLat] = bounds;
     const overpassUrl = "https://overpass-api.de/api/interpreter";
-
+  
+    // Focus only on major buildings (larger buildings, key structures)
     const query = `
-          [out:json];
-          (
-              way[building](${minLat},${minLon},${maxLat},${maxLon});
-              relation[building](${minLat},${minLon},${maxLat},${maxLon});
-          );
-          out body;
-          >;
-          out skel qt;
-      `;
-
+      [out:json];
+      (
+        way[building][building!~"no|shed|roof|garage|kiosk|toilet"](${minLat},${minLon},${maxLat},${maxLon});
+        relation[building][building!~"no|shed|roof|garage|kiosk|toilet"](${minLat},${minLon},${maxLat},${maxLon});
+      );
+      out center;
+      >;
+      out skel qt;
+    `;
+  
     try {
       const response = await fetch(`${overpassUrl}?data=${encodeURIComponent(query)}`, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
+        headers: { 'Accept': 'application/json' }
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+  
       const data = await response.json();
-      const elements = data.elements;
-      const buildings = elements.filter(el => el.type === 'way' || el.type === 'relation');
-
-      // Store building centers in this.buildings
-      this.buildings = buildings.map(building => {
-        if (building.center) {
-          return { lat: building.center.lat, lon: building.center.lon };
-        }
-
-        // For ways without center, calculate centroid
-        if (building.nodes && building.nodes.length > 0) {
-          const nodeCoords = building.nodes.map(nodeId => {
-            const node = elements.find(el => el.id === nodeId);
-            return node ? { lat: node.lat, lon: node.lon } : null;
-          }).filter(Boolean);
-
-          if (nodeCoords.length > 0) {
-            const avgLat = nodeCoords.reduce((sum, coord) => sum + coord.lat, 0) / nodeCoords.length;
-            const avgLon = nodeCoords.reduce((sum, coord) => sum + coord.lon, 0) / nodeCoords.length;
-            return { lat: avgLat, lon: avgLon };
-          }
-        }
-
-        return null;
-      }).filter(Boolean);
-
+      this.buildings = data.elements
+        .filter(el => el.type === 'way' || el.type === 'relation')
+        .map(building => {
+          if (building.center) return { lat: building.center.lat, lon: building.center.lon };
+          return null;
+        })
+        .filter(Boolean);
+  
+      return this.buildings;
     } catch (error) {
-      console.error("Error fetching OSM data:", error);
-      this.buildings = []; // Ensure buildings is always an array
+      console.error("Error fetching buildings:", error);
+      this.buildings = [];
       return [];
     }
   }

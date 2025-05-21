@@ -13,6 +13,7 @@ export class Simulation {
 
     this.stats = new Stats();
     this.stats.showPanel(0);
+    this.statsUI = null;
     document.body.appendChild(this.stats.dom);
 
     this.clock = null;
@@ -26,10 +27,11 @@ export class Simulation {
     this.initCamera();
     this.initRenderer();
     this.initControls();
+    console.log("Simulation loaded");
     await this.environment.load();
-    var targets = []
+    console.log("Environment loaded");
 
-    await this.AgentManager.load(this.environment, 100, targets);
+    await this.AgentManager.load(this.environment);
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -39,8 +41,10 @@ export class Simulation {
   }
 
   selectTarget() {
-    this.scene.add(this.environment.terrain.getMesh());
-    this.scene.add(this.environment.roads.getMesh());
+    console.log("Selecting target nodes...");
+
+    this.environment.terrain.draw(this.scene);
+    this.environment.roads.draw(this.scene);
 
     const nodeMeshes = this.environment.roads.getNodeMesh(this.scene);
     this.nodeMeshes = nodeMeshes;
@@ -58,11 +62,8 @@ export class Simulation {
     }
 
     this.environment.start();
+    this.environment.draw(this.scene);
 
-    this.scene.add(this.environment.terrain.getMesh());
-    this.scene.add(this.environment.roads.getMesh());
-    this.scene.add(this.environment.flood.createFloodGeometry());
-    
     this.AgentManager.start();
     this.AgentManager.draw(this.scene);
 
@@ -86,11 +87,15 @@ export class Simulation {
       }
       this.AgentManager.update(deltaTime, this.timeMultiplier);
       this.environment.update(deltaTime, this.timeMultiplier);
+
+      this.statsUI.innerHTML = `Active Agents: ${this.AgentManager.activeCount} <br> Arrived Agents: ${this.AgentManager.arrivedCount} <br> Idle Agents: ${this.AgentManager.idleCount}`;
     }
 
     this.stats.end();
     this.renderer.render(this.scene, this.camera);
     this.controller.update();
+
+    
     requestAnimationFrame(this.animate.bind(this));
   }
 
@@ -135,51 +140,166 @@ export class Simulation {
   }
 
   SettingsUI() {
+
+    // create a ui on the left bottom corner of the screen where i can control the simulation
+    // min max walking speed, driving speed, reaction time, number of adgents, 
+    // for the flood the gravity, friction, evaporation rate
+    // and a start button
     const ui = document.createElement('div');
     ui.style.position = 'absolute';
     ui.style.bottom = '10px';
     ui.style.left = '10px';
-    ui.style.color = 'white';
-    ui.style.fontSize = '20px';
-    ui.style.zIndex = 1000;
-    ui.innerHTML = `Time Multiplier: ${this.timeMultiplier}`;
-    document.body.appendChild(ui);
+    ui.style.display = 'flex';
+    ui.style.flexDirection = 'column';
+    ui.style.backgroundColor = 'rgb(35, 35, 35)';
 
-    const startsimulationButton = document.createElement('button');
-    startsimulationButton.innerHTML = 'Start Simulation';
-    startsimulationButton.style.position = 'absolute';
-    startsimulationButton.style.bottom = '50px';
-    startsimulationButton.style.left = '10px';
-    startsimulationButton.style.zIndex = 1000;
-    document.body.appendChild(startsimulationButton);
-    startsimulationButton.addEventListener('click', () => {
+    const minWalkingSpeedGroup = document.createElement('div');
+    minWalkingSpeedGroup.style.display = 'flex';
+    minWalkingSpeedGroup.style.flexDirection = 'row';
+    minWalkingSpeedGroup.style.alignItems = 'center';
+    minWalkingSpeedGroup.style.margin= '10px';
+    ui.appendChild(minWalkingSpeedGroup);
+
+    const maxWalkingSpeedGroup = minWalkingSpeedGroup.cloneNode(true);
+    const minCarSpeedGroup = minWalkingSpeedGroup.cloneNode(true);
+    const maxCarSpeedGroup = minWalkingSpeedGroup.cloneNode(true);
+    const minReactionTimeGroup = minWalkingSpeedGroup.cloneNode(true);
+    const maxReactionTimeGroup = minWalkingSpeedGroup.cloneNode(true);
+    const numberOfAgentsGroup = minWalkingSpeedGroup.cloneNode(true);
+
+    const minWalkingSpeedLabel = document.createElement('label');
+    minWalkingSpeedLabel.innerHTML = 'Min Walking Speed: ';
+    minWalkingSpeedLabel.style.color = 'white';
+    minWalkingSpeedLabel.style.fontSize = '20px';
+    minWalkingSpeedGroup.appendChild(minWalkingSpeedLabel);
+
+    const minWalkingSpeed = document.createElement('input');
+    minWalkingSpeed.type = 'number';
+    minWalkingSpeed.value = this.AgentManager.walkingSpeed[0];
+    minWalkingSpeedGroup.appendChild(minWalkingSpeed);
+
+    minWalkingSpeed.addEventListener('input', (event) => {
+      this.AgentManager.walkingSpeed[0] = event.target.value;
+    });
+
+    const maxWalkingSpeedLabel = document.createElement('label');
+    maxWalkingSpeedLabel.innerHTML = 'Max Walking Speed: ';
+    maxWalkingSpeedLabel.style.color = 'white';
+    maxWalkingSpeedLabel.style.fontSize = '20px';
+    maxWalkingSpeedGroup.appendChild(maxWalkingSpeedLabel);
+
+    const maxWalkingSpeed = document.createElement('input');
+    maxWalkingSpeed.type = 'number';
+    maxWalkingSpeed.value = this.AgentManager.walkingSpeed[1];
+    maxWalkingSpeedGroup.appendChild(maxWalkingSpeed);
+
+    maxWalkingSpeed.addEventListener('input', (event) => {
+      this.AgentManager.walkingSpeed[1] = event.target.value;
+    });
+
+    const minCarSpeedLabel = document.createElement('label');
+    minCarSpeedLabel.innerHTML = 'Min Car Speed: ';
+    minCarSpeedLabel.style.color = 'white';
+    minCarSpeedLabel.style.fontSize = '20px';
+    minCarSpeedGroup.appendChild(minCarSpeedLabel);
+
+    const minCarSpeed = document.createElement('input');
+    minCarSpeed.type = 'number';
+    minCarSpeed.value = this.AgentManager.drivingSpeed[0];
+    minCarSpeedGroup.appendChild(minCarSpeed);
+
+    minCarSpeed.addEventListener('input', (event) => {
+      this.AgentManager.drivingSpeed[0] = event.target.value;
+    });
+
+    const maxCarSpeedLabel = document.createElement('label');
+    maxCarSpeedLabel.innerHTML = 'Max Car Speed: ';
+    maxCarSpeedLabel.style.color = 'white';
+    maxCarSpeedLabel.style.fontSize = '20px';
+    maxCarSpeedGroup.appendChild(maxCarSpeedLabel);
+
+    const maxCarSpeed = document.createElement('input');
+    maxCarSpeed.type = 'number';
+    maxCarSpeed.value = this.AgentManager.drivingSpeed[1];
+    maxCarSpeedGroup.appendChild(maxCarSpeed);
+
+    maxCarSpeed.addEventListener('input', (event) => {
+      this.AgentManager.drivingSpeed[1] = event.target.value;
+    });
+
+    const minReactionTimeLabel = document.createElement('label');
+    minReactionTimeLabel.innerHTML = 'Min Reaction Time: ';
+    minReactionTimeLabel.style.color = 'white';
+    minReactionTimeLabel.style.fontSize = '20px';
+    minReactionTimeGroup.appendChild(minReactionTimeLabel);
+
+    const minReactionTime = document.createElement('input');
+    minReactionTime.type = 'number';
+    minReactionTime.value = this.AgentManager.reactionTime[0];
+    minReactionTimeGroup.appendChild(minReactionTime);
+
+    minReactionTime.addEventListener('input', (event) => {
+      this.AgentManager.reactionTime[0] = event.target.value;
+    });
+
+    const maxReactionTimeLabel = document.createElement('label');
+    maxReactionTimeLabel.innerHTML = 'Max Reaction Time: ';
+    maxReactionTimeLabel.style.color = 'white';
+    maxReactionTimeLabel.style.fontSize = '20px';
+    maxReactionTimeGroup.appendChild(maxReactionTimeLabel);
+
+    const maxReactionTime = document.createElement('input');
+    maxReactionTime.type = 'number';
+    maxReactionTime.value = this.AgentManager.reactionTime[1];
+    maxReactionTimeGroup.appendChild(maxReactionTime);
+
+    maxReactionTime.addEventListener('input', (event) => {
+      this.AgentManager.reactionTime[1] = event.target.value;
+    });
+
+    const numberOfAgentsLabel = document.createElement('label');
+    numberOfAgentsLabel.innerHTML = 'Number of Agents: ';
+    numberOfAgentsLabel.style.color = 'white';
+    numberOfAgentsLabel.style.fontSize = '20px';
+    numberOfAgentsGroup.appendChild(numberOfAgentsLabel);
+
+    const numberOfAgents = document.createElement('input');
+    numberOfAgents.type = 'number';
+    numberOfAgents.value = this.AgentManager.agentCount;
+
+    numberOfAgentsGroup.appendChild(numberOfAgents);
+    numberOfAgents.addEventListener('input', (event) => {
+      this.AgentManager.agentCount = event.target.value;
+    });
+
+    const startButton = document.createElement('button');
+    startButton.innerHTML = 'Start Simulation';
+    startButton.style.color = 'white';
+    startButton.style.fontSize = '20px';
+
+    startButton.style.backgroundColor = 'rgb(62, 62, 62)';
+    startButton.style.border = 'none';
+    startButton.style.padding = '10px 20px';
+    startButton.style.cursor = 'pointer';
+    startButton.style.margin = '10px';
+
+    startButton.addEventListener('click', () => {
       document.body.removeChild(ui);
-      document.body.removeChild(startsimulationButton);
-      document.body.removeChild(inputNbAgents);
-      document.body.removeChild(inputNbAgentsLabel);
       this.start();
     });
 
-    const inputNbAgents = document.createElement('input');
-    inputNbAgents.type = 'number';
-    inputNbAgents.value = 100;
-    inputNbAgents.style.position = 'absolute';
-    inputNbAgents.style.bottom = '100px';
-    inputNbAgents.style.left = '10px';
-    inputNbAgents.style.zIndex = 1000;
-    document.body.appendChild(inputNbAgents);
-    inputNbAgents.addEventListener('input', (event) => {
-      this.AgentManager.agentCount = event.target.value;
-    });
-    const inputNbAgentsLabel = document.createElement('label');
-    inputNbAgentsLabel.innerHTML = 'Number of Agents: ';
-    inputNbAgentsLabel.style.position = 'absolute';
-    inputNbAgentsLabel.style.bottom = '130px';
-    inputNbAgentsLabel.style.left = '10px';
-    inputNbAgentsLabel.style.color = 'white';
-    inputNbAgentsLabel.style.fontSize = '20px';
-    inputNbAgentsLabel.style.zIndex = 1000;
-    document.body.appendChild(inputNbAgentsLabel);
+    ui.appendChild(startButton);
+    ui.appendChild(minWalkingSpeedGroup);
+    ui.appendChild(maxWalkingSpeedGroup);
+    ui.appendChild(minCarSpeedGroup);
+    ui.appendChild(maxCarSpeedGroup);
+    ui.appendChild(minReactionTimeGroup);
+    ui.appendChild(maxReactionTimeGroup);
+    ui.appendChild(numberOfAgentsGroup);
+
+    document.body.appendChild(ui);
+
+
     
   }
 
@@ -196,7 +316,7 @@ export class Simulation {
 
     const timemultiplierSlider = document.createElement('input');
     timemultiplierSlider.type = 'range';
-    timemultiplierSlider.min = 1;
+    timemultiplierSlider.min = 0;
     timemultiplierSlider.max = 50;
     timemultiplierSlider.step = 1;
     timemultiplierSlider.value = this.timeMultiplier;
@@ -209,6 +329,20 @@ export class Simulation {
       this.timeMultiplier = event.target.value;
       ui.innerHTML = `Time Multiplier: ${this.timeMultiplier}`;
     });
+
+    this.statsUI = document.createElement('div');
+    this.statsUI.style.position = 'absolute';
+    this.statsUI.style.top = '50px';
+    this.statsUI.style.left = '10px';
+    this.statsUI.style.color = 'white';
+    this.statsUI.style.fontSize = '20px';
+    this.statsUI.style.zIndex = 1000;
+    this.statsUI.innerHTML = `Active Agents: ${this.AgentManager.activeCount} <br> Arrived Agents: ${this.AgentManager.arrivedCount} <br> Idle Agents: ${this.AgentManager.idleCount}`;
+    document.body.appendChild(this.statsUI);
+
+
+
+
 
   }
 
@@ -229,7 +363,7 @@ export class Simulation {
       const clickedObject = intersects[0].object;
 
       if (clickedObject.userData.isSelected) {
-        clickedObject.material.color.setHex(0x0000ff);
+        clickedObject.material.color.setHex(0x3D3A4B);
         clickedObject.userData.isSelected = false;
         this.AgentManager.removeTarget(clickedObject.userData.node);
       }
@@ -255,7 +389,7 @@ export class Simulation {
     // Reset all hover states first
     this.nodeMeshes.forEach(mesh => {
       if (!mesh.userData.isSelected) {
-        mesh.material.color.setHex(0x0000ff);
+        mesh.material.color.setHex(0x3D3A4B);
       }
     });
 

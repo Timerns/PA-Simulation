@@ -1,8 +1,0 @@
-
-export class SimulationUI {
-
-  constructor() {
-
-  }
-
-}
