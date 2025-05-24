@@ -1,4 +1,4 @@
-import { fromUrl } from "geotiff";
+import { fromBlob } from "geotiff";
 
 export class Elevation {
   constructor(filePath) {
@@ -13,8 +13,10 @@ export class Elevation {
 
   load() {
     return new Promise((resolve, reject) => {
-      fromUrl(this.filePath)
+      fromBlob(this.filePath)
         .then((tiff) => {
+          console.log("Loading elevation data from:", this.filePath);
+          console.log(tiff.getImage());
           return tiff.getImage();
         })
         .then((image) => {

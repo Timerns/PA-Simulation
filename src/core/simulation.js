@@ -22,13 +22,13 @@ export class Simulation {
     this.AgentManager = new AgentManager();
   }
 
-  async load() {
+  async load(bounds, filePath) {
     this.initScene();
     this.initCamera();
     this.initRenderer();
     this.initControls();
     console.log("Simulation loaded");
-    await this.environment.load();
+    await this.environment.load(bounds, filePath);
     console.log("Environment loaded");
 
     await this.AgentManager.load(this.environment);
