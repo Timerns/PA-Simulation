@@ -70,6 +70,7 @@ export class Flood {
     }
 
     update(deltaTime, timeMultiplier = 1) {
+        if ("Update flood simulation with deltaTime:", deltaTime, "and timeMultiplier:", timeMultiplier);
         const adjustedDeltaTime = (deltaTime / 1000) * timeMultiplier;
         this.timeAccumulator += adjustedDeltaTime;
         

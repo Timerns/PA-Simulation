@@ -284,6 +284,8 @@ export class Simulation {
     startButton.style.margin = '10px';
 
     startButton.addEventListener('click', () => {
+      this.renderer.domElement.removeEventListener('click', this.handleNodeClick.bind(this));
+      this.renderer.domElement.removeEventListener('mousemove', this.handleNodeHover.bind(this));
       document.body.removeChild(ui);
       this.start();
     });
