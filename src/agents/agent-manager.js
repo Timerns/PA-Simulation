@@ -57,15 +57,21 @@ export class AgentManager {
       const agent = this.agents[i];
       if (agent.active) {
         agent.update(this.environment.roads.graph, deltaTime, timeMultiplier, this.agents, this.environment.flood);
-        if(agent.reachedTarget) {
-
+        if (agent.reachedTarget) {
           this.arrivedCount++;
-        } else if(agent.isIdle) {
+          for (let j = 0; j < this.targets.length; j++) {
+            const targetNode = this.targets[j];
+            if (targetNode.value.equals(agent.segmentEnd)) {
+              this.targetsCount[j] = (this.targetsCount[j] || 0) + 1;
+            }
+          }
+        } else if (agent.isIdle) {
           this.idleCount++;
         }
       }
     }
     this.activeCount = this.agentCount - this.arrivedCount - this.idleCount;
+    this.updateTargetSprites();
   }
 
   addTarget(target) {
@@ -87,21 +93,84 @@ export class AgentManager {
       }
     }
 
+    this.targetMeshes = [];
+    this.targetSprites = [];
+
     for (let i = 0; i < this.targets.length; i++) {
       const targetNode = this.targets[i];
-      const targetMesh = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 32), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+
+      // Create target sphere
+      const targetMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(10, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+      );
       targetMesh.position.copy(targetNode.value);
       scene.add(targetMesh);
+      this.targetMeshes.push(targetMesh);
+
+      // Create text sprite
+      const sprite = this.createTextSprite(`0`);
+      sprite.position.copy(targetNode.value);
+      sprite.position.y += 25; // Position above the target
+      scene.add(sprite);
+      this.targetSprites.push(sprite);
     }
 
   }
 
 
+  createTextSprite(message) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 576;
+    const context = canvas.getContext('2d');
 
+    // Draw background
+    context.fillStyle = 'rgba(0, 0, 0, 0.0)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Draw text
+    context.font = 'Bold 500px Arial';
+    context.fillStyle = '#000000';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(message, canvas.width / 2, canvas.height / 2);
 
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(50, 25, 1);
+    return sprite;
+  }
 
+  updateTargetSprites() {
+    if (!this.targetSprites) return;
 
+    for (let i = 0; i < this.targetSprites.length; i++) {
+      const sprite = this.targetSprites[i];
+      const count = this.targetsCount[i] || 0;
+
+      // Update sprite texture
+      const canvas = sprite.material.map.image;
+      const context = canvas.getContext('2d');
+
+      // Clear and redraw
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = 'rgba(0, 0, 0, 0.0)';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.font = 'Bold 500px Arial';
+      context.fillStyle = '#000000';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(count.toString(), canvas.width / 2, canvas.height / 2);
+
+      // Update texture
+      sprite.material.map.needsUpdate = true;
+    }
+  }
 
 
 }

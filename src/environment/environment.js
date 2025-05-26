@@ -31,15 +31,16 @@ export class Environment {
     console.log("Roads loaded");
     await this.populationDistribution.load(this.bounds, 100);
     console.log("Population loaded");
-  }
-
-  start() {
     this.flood = new Flood(this.terrain.geometry);
   }
 
+  // start() {
+  //   this.flood = new Flood(this.terrain.geometry);
+  // }
+
   update(deltaTime, tickMultiplier) {
-      this.flood.addWaterAt(75, 100, 0.002, deltaTime, tickMultiplier);
-      this.flood.addWaterAt(155, 85, 0.002, deltaTime, tickMultiplier);
+      // this.flood.addWaterAt(75, 100, 0.002, deltaTime, tickMultiplier);
+      // this.flood.addWaterAt(155, 85, 0.002, deltaTime, tickMultiplier);
       this.flood.update(deltaTime, tickMultiplier);
   }
 

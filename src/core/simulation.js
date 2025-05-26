@@ -41,27 +41,27 @@ export class Simulation {
   }
 
   selectTarget() {
-    console.log("Selecting target nodes...");
+        console.log("Selecting target nodes...");
+        this.environment.terrain.draw(this.scene);
+        this.environment.roads.draw(this.scene);
+        this.environment.flood.draw(this.scene);
 
-    this.environment.terrain.draw(this.scene);
-    this.environment.roads.draw(this.scene);
+        const nodeMeshes = this.environment.roads.getNodeMesh(this.scene);
+        this.nodeMeshes = nodeMeshes;
 
-    const nodeMeshes = this.environment.roads.getNodeMesh(this.scene);
-    this.nodeMeshes = nodeMeshes;
-
-    this.renderer.domElement.addEventListener('click', this.handelNodeClick.bind(this), false);
-    this.renderer.domElement.addEventListener('mousemove', this.handelNodeHover.bind(this), false);
-
-    this.SettingsUI()
-    this.animate();
-  }
+        this.renderer.domElement.addEventListener('click', this.handleNodeClick.bind(this), false);
+        this.renderer.domElement.addEventListener('mousemove', this.handleNodeHover.bind(this), false);
+        
+        this.SettingsUI();
+        this.animate();
+    }
 
   start() {
     for (let i = 0; i < this.nodeMeshes.length; i++) {
       this.scene.remove(this.nodeMeshes[i]);
     }
 
-    this.environment.start();
+    // this.environment.start();
     this.environment.draw(this.scene);
 
     this.AgentManager.start();
@@ -287,6 +287,51 @@ export class Simulation {
       document.body.removeChild(ui);
       this.start();
     });
+    
+    const waterSourceGroup = document.createElement('div');
+    waterSourceGroup.style.display = 'flex';
+    waterSourceGroup.style.flexDirection = 'column';
+    waterSourceGroup.style.margin = '10px';
+    waterSourceGroup.style.padding = '10px';
+    waterSourceGroup.style.border = '1px solid #444';
+    
+    const waterSourceTitle = document.createElement('h3');
+    waterSourceTitle.textContent = 'Water Sources';
+    waterSourceTitle.style.color = 'white';
+    waterSourceTitle.style.marginTop = '0';
+    waterSourceGroup.appendChild(waterSourceTitle);
+
+    const waterSourceInstructions = document.createElement('p');
+    waterSourceInstructions.textContent = 'Shift+Click on terrain to add water sources';
+    waterSourceInstructions.style.color = 'white';
+    waterSourceInstructions.style.margin = '5px 0';
+    waterSourceGroup.appendChild(waterSourceInstructions);
+
+    // Water source rate control
+    const waterRateGroup = document.createElement('div');
+    waterRateGroup.style.display = 'flex';
+    waterRateGroup.style.alignItems = 'center';
+    waterRateGroup.style.margin = '5px 0';
+
+    const waterRateLabel = document.createElement('label');
+    waterRateLabel.textContent = 'Water Source Rate: ';
+    waterRateLabel.style.color = 'white';
+    waterRateLabel.style.marginRight = '10px';
+    waterRateGroup.appendChild(waterRateLabel);
+
+    const waterRateInput = document.createElement('input');
+    waterRateInput.type = 'number';
+    waterRateInput.value = '0.002';
+    waterRateInput.step = '0.001';
+    waterRateInput.style.width = '60px';
+    waterRateGroup.appendChild(waterRateInput);
+    this.currentWaterRate = 0.002;
+    waterRateInput.addEventListener('input', (e) => {
+        this.currentWaterRate = parseFloat(e.target.value);
+    });
+
+    waterSourceGroup.appendChild(waterRateGroup);
+    
 
     ui.appendChild(startButton);
     ui.appendChild(minWalkingSpeedGroup);
@@ -296,6 +341,7 @@ export class Simulation {
     ui.appendChild(minReactionTimeGroup);
     ui.appendChild(maxReactionTimeGroup);
     ui.appendChild(numberOfAgentsGroup);
+    ui.appendChild(waterSourceGroup);
 
     document.body.appendChild(ui);
 
@@ -348,7 +394,7 @@ export class Simulation {
 
 
   // Event handlers
-  handelNodeClick(event) {
+    handleNodeClick(event) {
     const mouse = new THREE.Vector2(
       (event.clientX / window.innerWidth) * 2 - 1,
       -(event.clientY / window.innerHeight) * 2 + 1
@@ -357,11 +403,10 @@ export class Simulation {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, this.camera);
 
-    const intersects = raycaster.intersectObjects(this.nodeMeshes);
-
-    if (intersects.length > 0) {
-      const clickedObject = intersects[0].object;
-
+    // Check if we clicked on a road node
+    const nodeIntersects = raycaster.intersectObjects(this.nodeMeshes);
+    if (nodeIntersects.length > 0) {
+      const clickedObject = nodeIntersects[0].object;
       if (clickedObject.userData.isSelected) {
         clickedObject.material.color.setHex(0x3D3A4B);
         clickedObject.userData.isSelected = false;
@@ -375,10 +420,63 @@ export class Simulation {
         const targetNode = clickedObject.userData.node;
         this.AgentManager.addTarget(targetNode);;
       }
+      return;
+    }
+
+    // Check if we clicked on the terrain to add a water source
+    const terrain = this.scene.getObjectByName("terrain");
+    if (terrain) {
+      const terrainIntersects = raycaster.intersectObject(terrain);
+      if (terrainIntersects.length > 0 && event.shiftKey) {
+        const point = terrainIntersects[0].point;
+
+        console.log("Adding water source at: ", point);
+
+        // Convert world coordinates to grid coordinates
+        const width = terrain.geometry.parameters.width;
+        const height = terrain.geometry.parameters.height;
+        const widthSegments = this.environment.flood.widthNbSegments;
+        const heightSegments = this.environment.flood.heightNbSegments;
+
+        const normalizedX = (point.x + width/2) / width;
+        const normalizedZ = (point.z + height/2) / height;
+
+        const x = Math.round(normalizedX * widthSegments);
+        const z = heightSegments - Math.round(normalizedZ * heightSegments);
+
+        console.log(`Water source grid position: (${x}, ${z})`);
+        // Add water source at this position
+        this.environment.flood.addWaterSource(x, z, 0.002);
+
+        // Visual feedback
+        const sphere = new THREE.Mesh(
+          new THREE.SphereGeometry(5, 8, 8),
+          new THREE.MeshBasicMaterial({ color: 0x1E90FF })
+        );
+
+        // Convert normalized coordinates back to world coordinates
+        const x_ = x / widthSegments * width - width / 2;
+        const z_ = z / heightSegments * height - height / 2;
+
+        // Calculate elevation at this point
+        const lat = this.environment.bounds[3] - normalizedZ * (this.environment.bounds[3] - this.environment.bounds[1]);
+        const lon = this.environment.bounds[0] + normalizedX * (this.environment.bounds[2] - this.environment.bounds[0]);
+        const elevation = this.environment.elevation.getHeight(lat, lon);
+     
+        console.log(`Water source marker position: (${x_}, ${elevation}, ${z_})`);
+     
+        sphere.position.set(x_, elevation + 1, z_); 
+        this.scene.add(sphere);
+        this.waterSourceMarkers = this.waterSourceMarkers || [];
+        this.waterSourceMarkers.push(sphere);
+
+        
+      }
     }
   }
 
-  handelNodeHover(event) {
+
+  handleNodeHover(event) {
     const mouse = new THREE.Vector2(
       (event.clientX / window.innerWidth) * 2 - 1,
       -(event.clientY / window.innerHeight) * 2 + 1

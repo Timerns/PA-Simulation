@@ -4,8 +4,8 @@ export class Flood {
     constructor(terrainGeometry) {
         this.terrainGeometry = terrainGeometry;
         this.vertices = terrainGeometry.attributes.position.array;
-        this.widthSegments = terrainGeometry.parameters.widthSegments; 
-        this.heightSegments = terrainGeometry.parameters.heightSegments;
+        this.widthNbSegments = terrainGeometry.parameters.widthSegments; 
+        this.heightNbSegments = terrainGeometry.parameters.heightSegments;
 
         // Only water height is needed
         this.waterHeight = new Float32Array(this.vertices.length / 3).fill(0);
@@ -27,7 +27,22 @@ export class Flood {
             transparent: true,
             opacity: 0.5,
             side: THREE.DoubleSide,
+            // wireframe    : true
         });
+
+        this.waterSources = []; 
+    }
+
+    addWaterSource(x, y, rate) {
+        this.waterSources.push({ x, y, rate });
+    }
+
+    removeWaterSource(index) {
+        this.waterSources.splice(index, 1);
+    }
+
+    getWaterSources() {
+        return this.waterSources;
     }
 
     createFloodGeometry() {
@@ -38,18 +53,18 @@ export class Flood {
     }
 
     getCellIndex(x, y) {
-        return y * (this.widthSegments + 1) + x;
+        return y * (this.widthNbSegments + 1) + x;
     }
 
     getNeighbors(index) {
         const neighbors = [];
-        const x = index % (this.widthSegments + 1);
-        const y = Math.floor(index / (this.widthSegments + 1));
+        const x = index % (this.widthNbSegments + 1);
+        const y = Math.floor(index / (this.widthNbSegments + 1));
 
         if (x > 0) neighbors.push(index - 1);
-        if (x < this.widthSegments) neighbors.push(index + 1);
-        if (y > 0) neighbors.push(index - (this.widthSegments + 1));
-        if (y < this.heightSegments) neighbors.push(index + (this.widthSegments + 1));
+        if (x < this.widthNbSegments) neighbors.push(index + 1);
+        if (y > 0) neighbors.push(index - (this.widthNbSegments + 1));
+        if (y < this.heightNbSegments) neighbors.push(index + (this.widthNbSegments + 1));
 
         return neighbors;
     }
@@ -59,6 +74,15 @@ export class Flood {
         this.timeAccumulator += adjustedDeltaTime;
         
         let stepsTaken = 0;
+        if (!this.waterSources) {
+            console.log("No water sources defined.");
+            this.updateVisuals();
+            return;
+        }
+        this.waterSources.forEach(source => {
+                this.addWaterAt(source.x, source.y, source.rate, deltaTime, timeMultiplier);
+            });
+
         while (this.timeAccumulator >= this.timeStep && stepsTaken < this.maxStepsPerFrame) {
             this.updateWaterHeight();
             this.timeAccumulator -= this.timeStep;
@@ -138,9 +162,10 @@ export class Flood {
             }
         }
     }
-    
+
     draw(scene) {
         this.createFloodGeometry();
+        this.updateVisuals();
         scene.add(this.floodMesh);
     }
 }
