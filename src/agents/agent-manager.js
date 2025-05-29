@@ -29,6 +29,15 @@ export class AgentManager {
   start() {
     this.activeCount = this.agentCount;
 
+    // For testing purposes, we can add targets dynamically
+    // if(this.targets.length === 0) {
+    //   for (let i = 0; i < 5; i++) {
+    //     this.addTarget(this.environment.roads.graph.getRandomNode());
+    //     this.environment.roads.graph.computeShortestPath(this.targets);
+    //   }
+    // }
+
+
     for (let i = 0; i < this.agentCount; i++) {
       const coordinates = this.populationDistribution.generateRandomCoordinate();
       const coords = wgs84ToCoordsFromCenter(coordinates.lon, coordinates.lat, this.environment.bounds);

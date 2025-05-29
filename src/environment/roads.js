@@ -10,7 +10,6 @@ export class Roads {
 
   async load(elevation, bounds) {
     this.roads = await this.getRoads(...bounds);
-    console.log(this.roads);
     this.generateGraph(elevation, bounds);
     this.filterRoadGraph();
   }

@@ -123,16 +123,6 @@ export class Flood {
                     totalOutflow += actualFlow;
                 }
             }
-            
-            if (totalOutflow > this.waterHeight[i]) {
-                const correctionFactor = this.waterHeight[i] / totalOutflow;
-                for (const j of neighbors) {
-                    if (newHeight[j] > 0) {
-                        newHeight[j] *= correctionFactor;
-                    }
-                }
-                newHeight[i] = 0;
-            }
         }
         
         for (let i = 0; i < this.waterHeight.length; i++) {

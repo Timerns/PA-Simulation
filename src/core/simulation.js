@@ -446,7 +446,7 @@ export class Simulation {
         const x = Math.round(normalizedX * widthSegments);
         const z = heightSegments - Math.round(normalizedZ * heightSegments);
 
-        console.log(`Water source grid position: (${x}, ${z})`);
+        // console.log(`Water source grid position: (${x}, ${z})`);
         // Add water source at this position
         this.environment.flood.addWaterSource(x, z, 0.002);
 
@@ -461,11 +461,13 @@ export class Simulation {
         const z_ = z / heightSegments * height - height / 2;
 
         // Calculate elevation at this point
-        const lat = this.environment.bounds[3] - normalizedZ * (this.environment.bounds[3] - this.environment.bounds[1]);
+        const lat = this.environment.bounds[1] + normalizedZ * (this.environment.bounds[3] - this.environment.bounds[1]);
         const lon = this.environment.bounds[0] + normalizedX * (this.environment.bounds[2] - this.environment.bounds[0]);
         const elevation = this.environment.elevation.getHeight(lat, lon);
+
+        console.log(`Geographic coordinates: (${lat}, ${lon})`);
      
-        console.log(`Water source marker position: (${x_}, ${elevation}, ${z_})`);
+        // console.log(`Water source marker position: (${x_}, ${elevation}, ${z_})`);
      
         sphere.position.set(x_, elevation + 1, z_); 
         this.scene.add(sphere);

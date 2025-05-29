@@ -101,6 +101,7 @@ class Graph {
     }
 
     computeShortestPath(targetNodes) {
+        let time = performance.now();
         this.computedShortestPath.clear();
         
         // If no target nodes, return
@@ -162,10 +163,16 @@ class Graph {
                 this.computedShortestPath.set(node, previous.get(node));
             }
         }
+        time = performance.now() - time
+        // let numberOfEdges = 0;
+        // for (const node of this.nodes.values()) {
+        //     for (const neighbor of node.neighbors.keys()) {
+        //         numberOfEdges++;
+        //     }
+        // }
+
+        // console.log(`${this.nodes.size} & ${numberOfEdges} & ${targetNodes.length} & ${time.toFixed(1)}`);
     }
-
-
-
 }
 
 export { Graph };

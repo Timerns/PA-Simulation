@@ -1,10 +1,40 @@
-# PA-Simulation
+# Disaster Evacuation Simulation Tool 
+
+This project is a web-based agent-based simulation tool designed to model and visualize evacuation scenarios during natural disasters, with an initial focus on flood events. Built using **Three.js**, it integrates **geospatial data** from OpenStreetMap and ESA's Digital Elevation Models (DEM) to simulate real-world terrains and dynamic human behavior under emergency conditions.
 
 
-https://browser.dataspace.copernicus.eu/?zoom=12&lat=46.53749&lng=6.62373&themeId=DEFAULT-THEME&visualizationUrl=U2FsdGVkX1%2BKhnV9RyIyoB2YEdSioiYZiX6fPEY4Oodo6wUYcsE5w9YJ37RKciyrsDGbVL6FxcaoTYuCfZZ9ZCnwUUk9NxrMLQtYANy6d71Xl1DNTxvtGVKHR67iayGJ&evalscript=Ly9WRVJTSU9OPTMKLy8gVG8gc2V0IGN1c3RvbSBtYXggYW5kIG1pbiB2YWx1ZXMsIHNldAovLyBjaG9vc2UgeW91ciBtYXggYW5kIG1pbiB2YWx1ZXMuIAovLyBUaGUgY29sb3IgbWFwIHdpbGwgdGhlbiBiZSBzY2FsZWQKLy8gdG8gdGhvc2UgbWF4IGFuZCBtaW4gdmFsdWVzCmNvbnN0IG1heCA9IDgwMDA7CmNvbnN0IG1pbiA9IDA7CgpmdW5jdGlvbiBzZXR1cCgpIHsKICByZXR1cm4gewogICAgaW5wdXQ6IFsiREVNIiwgImRhdGFNYXNrIl0sCiAgICBvdXRwdXQ6IFsKICAgICAgeyBpZDogImRlZmF1bHQiLCBiYW5kczogNCwgc2FtcGxlVHlwZTogIkFVVE8iIH0sCiAgICAgIHsgaWQ6ICJpbmRleCIsIGJhbmRzOiAxLCBzYW1wbGVUeXBlOiAiRkxPQVQzMiIgfSwKICAgICAgeyBpZDogImRhdGFNYXNrIiwgYmFuZHM6IDEgfSwKICAgIF0sCiAgfTsKfQpjb25zdCBtYXAgPSBbCiAgWzgwMDAsIDB4ZmZmZmZmXSwKICBbNzAwMCwgMHhmMmYyZjJdLAogIFs2MDAwLCAweGU1ZTVlNV0sCiAgWzU1MDAsIDB4NDkzODExXSwKICBbNTAwMCwgMHg1ZTRjMjZdLAogIFs0NTAwLCAweDcyNjAzOF0sCiAgWzQwMDAsIDB4ODc3MjRjXSwKICBbMzUwMCwgMHg5OTg3NjBdLAogIFszMDAwLCAweGFkOWI3NV0sCiAgWzI1MDAsIDB4YzFhZjg5XSwKICBbMjAwMCwgMHhkNmM0OWVdLAogIFsxNTAwLCAweGVhZDhhZl0sCiAgWzEwMDAsIDB4ZmNlZGJmXSwKICBbOTAwLCAweGFhZGRhMF0sCiAgWzgwMCwgMHhhNWQ2OWJdLAogIFs3MDAsIDB4OTZjZThlXSwKICBbNjAwLCAweDg0YzE3YV0sCiAgWzUwMCwgMHg3YWJhNzBdLAogIFs0MDAsIDB4NzJiMjY2XSwKICBbMzAwLCAweDVlYTM1NF0sCiAgWzIwMCwgMHg0YzkzM2ZdLAogIFsxMDAsIDB4M2Q4NzNkXSwKICBbNzUsIDB4MzU3YzNhXSwKICBbNTAsIDB4MmQ3MjJkXSwKICBbMjUsIDB4MjY2ODIxXSwKICBbMTAsIDB4MWU1ZTE0XSwKICBbMC4wMDAwMSwgMHgxNjU0MDddLAogIFswLCAweDBmMGY4Y10KXTsKCmNvbnN0IHZpc3VhbGl6ZXIgPSBuZXcgQ29sb3JSYW1wVmlzdWFsaXplcihtYXAsIG1pbiwgbWF4KTsKCmZ1bmN0aW9uIGV2YWx1YXRlUGl4ZWwoc2FtcGxlcykgewogIGNvbnN0IGltZ1ZhbHMgPSB2aXN1YWxpemVyLnByb2Nlc3Moc2FtcGxlcy5ERU0pCgogIC8vIFJldHVybiB0aGUgNCBpbnB1dHMgYW5kIGRlZmluZSBjb250ZW50IGZvciBlYWNoIG9uZQogIHJldHVybiB7CiAgICBkZWZhdWx0OiBbLi4uaW1nVmFscywgc2FtcGxlcy5kYXRhTWFza10sCiAgICBpbmRleDogW3NhbXBsZXMuREVNXSwKICAgIGRhdGFNYXNrOiBbc2FtcGxlcy5kYXRhTWFza10sCiAgfQp9Cg%3D%3D&datasetId=DEM_COPERNICUS_30_CDAS&fromTime=2025-02-20T00%3A00%3A00.000Z&toTime=2025-02-20T23%3A59%3A59.999Z&demSource3D=%22MAPZEN%22&cloudCoverage=30&dateMode=SINGLE#custom-script
+## Installation
 
+To run the simulation tool locally:
 
-ollama run deepseek-r1:14b
+### 1. Install Node.js
 
+Download and install the latest **LTS** version of Node.js from the official website:
+🔗 [https://nodejs.org](https://nodejs.org)
 
-https://www.sciencedirect.com/science/article/pii/S1364815223001731
+After installation, verify Node.js and npm were installed correctly:
+
+```bash
+node -v
+npm -v
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Run the development server
+
+```bash
+npm run dev
+```
+
+This command will start the Vite development server. Open your browser and visit:
+
+```
+http://localhost:3000
+```
+### DEM Data
+Some DEM data is already included in the project under the assets folder. 

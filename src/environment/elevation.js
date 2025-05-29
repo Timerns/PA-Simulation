@@ -15,8 +15,6 @@ export class Elevation {
     return new Promise((resolve, reject) => {
       fromBlob(this.filePath)
         .then((tiff) => {
-          console.log("Loading elevation data from:", this.filePath);
-          console.log(tiff.getImage());
           return tiff.getImage();
         })
         .then((image) => {
