@@ -26,8 +26,7 @@ export class Flood {
             color: 0x1E90FF,
             transparent: true,
             opacity: 0.5,
-            side: THREE.DoubleSide,
-            // wireframe    : true
+            side: THREE.DoubleSide
         });
 
         this.waterSources = []; 

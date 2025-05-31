@@ -29,7 +29,7 @@ export class Agent {
     this.mesh.add(this.arrow);
     this.mesh.position.copy(position);
 
-    this.reactionTime = reactionTime[0] + Math.random() * (reactionTime[1] - reactionTime[0]);
+    this.reactionTime = Number(reactionTime[0]) + Number(Math.random() * (reactionTime[1] - reactionTime[0]));
 
     // Movement properties
     this.inFlood = false;
@@ -38,7 +38,7 @@ export class Agent {
     this.walkingSpeed = walkSpeed[0] + Math.random() * (walkSpeed[1] - walkSpeed[0]);
     this.currentSpeed = this.walkingSpeed;
     this.isDriving = false;
-    
+
 
     // Progress tracking
     this.targets = targets;
@@ -73,15 +73,16 @@ export class Agent {
 
   update(graph, deltaTime, timeMultiplier, agents, flood) {
     if (!this.active) return false;
-  
+
     const timeStep = (deltaTime / 1000) * timeMultiplier;
 
-    if(this.reactionTime > 0) {
+    if (this.reactionTime > 0) {
       this.reactionTime -= timeStep;
+      // console.log(`Agent reaction time: ${this.reactionTime.toFixed(2)}s`);
       return;
-    } 
+    }
     this.isIdle = false;
-  
+
     if (this.reachedTarget) {
       this.active = false;
       this.mesh.visible = false;
@@ -89,44 +90,50 @@ export class Agent {
     }
 
     // Check flood status
-    if(!this.inFlood) {
-        this.inFlood = this.isInFlood(flood);
+    if (!this.inFlood) {
+      this.inFlood = this.isInFlood(flood);
     }
-    
+
     if (this.inFlood) {
       // Flooded behavior
       this.sphere.material.color.set(0x800080); // Purple color
       this.currentSpeed = this.walkingSpeed; // Always walking speed
       this.isDriving = false;
-      
+
       // Move along the path (roads) without checking collisions
       this.moveAlongSegment(timeStep);
     } else {
       // Normal behavior
       this.sphere.material.color.set(0xff0000); // Red color
       this.currentSpeed = this.isDriving ? this.maxSpeed : this.walkingSpeed;
-      
+
       // Only check collisions when not flooded
       if (!this.inFlood) {
         this.checkCollisions(agents);
       }
       this.moveAlongSegment(timeStep);
     }
-    
+
     this.mesh.position.copy(this.position);
     this.checkNodeProgress(graph);
-  
+
     return;
   }
 
   isInFlood(flood) {
     if (!flood || !flood.waterHeight) return false;
-    
+
     // Get the agent's position in flood grid coordinates
-    const x = Math.floor((this.position.x + flood.terrainGeometry.parameters.width/2) / (flood.terrainGeometry.parameters.width / (flood.widthSegments + 1)));
-    const y = Math.floor((this.position.z + flood.terrainGeometry.parameters.height/2) / (flood.terrainGeometry.parameters.height / (flood.heightSegments + 1)));
-    
-    const index = flood.getCellIndex(x, y);
+    const x = Math.round(
+      (this.position.x + flood.terrainGeometry.parameters.width / 2) /
+      (flood.terrainGeometry.parameters.width / flood.widthNbSegments)
+    );
+    const y = Math.round(
+      (this.position.z + flood.terrainGeometry.parameters.height / 2) /
+      (flood.terrainGeometry.parameters.height / flood.heightNbSegments)
+    );
+
+    const index = y * (flood.widthNbSegments + 1) + x;
     if (index >= 0 && index < flood.waterHeight.length) {
       return flood.waterHeight[index] > flood.minWaterHeight;
     }

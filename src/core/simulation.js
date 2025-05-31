@@ -382,7 +382,7 @@ export class Simulation {
     this.statsUI.style.position = 'absolute';
     this.statsUI.style.top = '50px';
     this.statsUI.style.left = '10px';
-    this.statsUI.style.color = 'white';
+    this.statsUI.style.color = 'black';
     this.statsUI.style.fontSize = '20px';
     this.statsUI.style.zIndex = 1000;
     this.statsUI.innerHTML = `Active Agents: ${this.AgentManager.activeCount} <br> Arrived Agents: ${this.AgentManager.arrivedCount} <br> Idle Agents: ${this.AgentManager.idleCount}`;
