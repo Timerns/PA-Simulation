@@ -10,7 +10,7 @@ To run the simulation tool locally:
 ### 1. Install Node.js
 
 Download and install the latest **LTS** version of Node.js from the official website:
-🔗 [https://nodejs.org](https://nodejs.org)
+[https://nodejs.org](https://nodejs.org)
 
 After installation, verify Node.js and npm were installed correctly:
 
