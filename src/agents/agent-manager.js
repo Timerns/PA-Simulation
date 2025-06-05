@@ -37,7 +37,6 @@ export class AgentManager {
     //   }
     // }
 
-
     for (let i = 0; i < this.agentCount; i++) {
       const coordinates = this.populationDistribution.generateRandomCoordinate();
       const coords = wgs84ToCoordsFromCenter(coordinates.lon, coordinates.lat, this.environment.bounds);
@@ -108,7 +107,6 @@ export class AgentManager {
     for (let i = 0; i < this.targets.length; i++) {
       const targetNode = this.targets[i];
 
-      // Create target sphere
       const targetMesh = new THREE.Mesh(
         new THREE.SphereGeometry(10, 32, 32),
         new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -117,7 +115,6 @@ export class AgentManager {
       scene.add(targetMesh);
       this.targetMeshes.push(targetMesh);
 
-      // Create text sprite
       const sprite = this.createTextSprite(`0`);
       sprite.position.copy(targetNode.value);
       sprite.position.y += 25; // Position above the target

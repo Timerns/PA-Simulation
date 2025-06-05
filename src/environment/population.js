@@ -13,7 +13,6 @@ export class PopulationDistribution {
     const [minLon, minLat, maxLon, maxLat] = bounds;
     const overpassUrl = "https://overpass-api.de/api/interpreter";
   
-    // Focus only on major buildings (larger buildings, key structures)
     const query = `
       [out:json];
       (

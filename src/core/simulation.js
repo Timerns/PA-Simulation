@@ -140,11 +140,6 @@ export class Simulation {
   }
 
   SettingsUI() {
-
-    // create a ui on the left bottom corner of the screen where i can control the simulation
-    // min max walking speed, driving speed, reaction time, number of adgents, 
-    // for the flood the gravity, friction, evaporation rate
-    // and a start button
     const ui = document.createElement('div');
     ui.style.position = 'absolute';
     ui.style.bottom = '10px';

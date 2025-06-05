@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 
 export class Agent {
-  // walkSpeed in m/s
-  // driveSpeed in m/s
-  // reactionTime in s
   constructor(position, targets, graph, walkSpeed = [1, 3], driveSpeed = [10, 20], reactionTime = [0, 300]) {
     // Main sphere body
     this.sphere = new THREE.Mesh(
@@ -141,7 +138,6 @@ export class Agent {
   }
 
   updateArrowDirection() {
-    // Calculate the angle between the movement vector and the world's forward vector (0,0,1)
     const angle = Math.atan2(this.movementVector.x, this.movementVector.z);
     this.mesh.rotation.y = angle;
   }

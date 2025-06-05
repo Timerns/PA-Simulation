@@ -6,12 +6,7 @@ import Terrain from "./terrain";
 
 export class Environment {
   constructor() {
-    // this.bounds = [6.58,46.506415,6.643553,46.531823];
     this.bounds = null
-    // this.bounds = [85.284634,27.671671,85.365486,27.720460]
-    // this.bounds = [85.284634,27.671671,85.325486,27.690460]
-    // this.elevation = new Elevation("../assets/lausanne2.tiff");
-    // this.elevation = new Elevation("../assets/kathmandu.tiff");
     this.elevation = null
     this.terrain = new Terrain();
     this.roads = new Roads();
@@ -34,13 +29,7 @@ export class Environment {
     this.flood = new Flood(this.terrain.geometry);
   }
 
-  // start() {
-  //   this.flood = new Flood(this.terrain.geometry);
-  // }
-
   update(deltaTime, tickMultiplier) {
-      // this.flood.addWaterAt(75, 100, 0.002, deltaTime, tickMultiplier);
-      // this.flood.addWaterAt(155, 85, 0.002, deltaTime, tickMultiplier);
       this.flood.update(deltaTime, tickMultiplier);
   }
 
